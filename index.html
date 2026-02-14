@@ -355,29 +355,36 @@ function shakeEl(id) {
 
 // ===== Parse Text =====
 function isJunk(name) {
-  // Reject lines that look like code, JS, HTML, or other garbage
-  if (!name || name.length < 1 || name.length > 80) return true;
+  if (!name || name.length < 1 || name.length > 120) return true;
   if (/^case\s*checklist/i.test(name)) return true;
-  // Code patterns: brackets, semicolons, function calls, variable assignments, operators
-  if (/[{};=<>]/.test(name)) return true;
-  if (/\bfunction\b|\bvar\b|\bconst\b|\blet\b|\breturn\b|\bif\b|\bfor\b|\bwhile\b/i.test(name)) return true;
-  if (/\$\w|\.\w+\(/.test(name)) return true; // $variable, .method()
-  if (/^\s*\/[/*]/.test(name)) return true; // comments
-  if (/^https?:/.test(name)) return true; // URLs
-  if (/[()]{2,}/.test(name)) return true; // multiple parens
-  if (/\\[nrt"]/.test(name)) return true; // escape sequences
-  if (/^\W+$/.test(name)) return true; // only symbols
-  // Too many special characters relative to length — likely code
-  const specials = (name.match(/[^a-zA-Z0-9\s'"\-+/.#&:,!]/g) || []).length;
-  if (specials > name.length * 0.3) return true;
+  // Code patterns
+  if (/[{};]/.test(name)) return true;
+  if (/\bfunction\b|\bvar\b|\bconst\b|\blet\b|\breturn\b/i.test(name)) return true;
+  if (/\$\w{2,}/.test(name)) return true;
+  if (/^\s*\/[/*]/.test(name)) return true;
+  if (/^https?:/.test(name)) return true;
+  if (/\\[nrt"]/.test(name)) return true;
+  if (/^\W+$/.test(name)) return true;
+  const specials = (name.match(/[^a-zA-Z0-9\s'"\-+/.#&:,!()@']/g) || []).length;
+  if (specials > name.length * 0.35) return true;
   return false;
 }
 
+function cleanLine(l) {
+  // Strip common Truck Packer UI artifacts from copied text
+  return l
+    .replace(/^[\s○●◯☐☑✓✔→►▸▶▪▫•·]+/, '') // leading icons/bullets
+    .replace(/\s*(visibility|visibility_off|delete|delete_outline|edit|more_vert|more_horiz)\s*/gi, '') // Material icon text
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function parseText(raw) {
-  const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  // Pre-clean: split, trim, clean UI artifacts
+  let lines = raw.split(/\r?\n/).map(l => cleanLine(l)).filter(l => l.length > 0);
   let result = [];
 
-  // Strategy A: "1  77 SIGNS" on same line
+  // Strategy A: "1  77 SIGNS" — number + name on same line
   let seen = {};
   lines.forEach(line => {
     const m = line.match(/^(\d{1,3})\s{1,6}(.+)$/);
@@ -390,12 +397,13 @@ function parseText(raw) {
   });
   if (result.length >= 3) return result;
 
-  // Strategy B: separate lines (number on one line, name on next)
+  // Strategy B: number and name on separate lines
   result = []; seen = {};
   for (let i = 0; i < lines.length - 1; i++) {
     if (/^\d{1,3}$/.test(lines[i])) {
       const seq = parseInt(lines[i]);
       let j = i + 1;
+      // Skip consecutive numbers
       while (j < lines.length && /^\d{1,3}$/.test(lines[j])) j++;
       if (j < lines.length) {
         const name = lines[j];
@@ -408,16 +416,27 @@ function parseText(raw) {
   }
   if (result.length >= 3) return result;
 
-  // Strategy C: plain list (one name per line)
+  // Strategy C: every non-junk, non-number line is a case name
   result = [];
   let seq = 1;
   lines.forEach(l => {
     if (/^\d{1,3}$/.test(l)) return;
+    if (/^case\s*checklist/i.test(l)) return;
     const m = l.match(/^(\d{1,3})\s+(.+)$/);
     const name = m ? m[2].trim() : l;
     if (isJunk(name)) return;
     result.push({ seq: m ? parseInt(m[1]) : seq, name, color: '', packName });
     seq++;
+  });
+  if (result.length >= 2) return result;
+
+  // Strategy D (last resort): take ALL non-empty lines > 1 char as case names
+  // Only skip obvious junk (very short, only numbers, or code)
+  result = [];
+  seq = 1;
+  lines.forEach(l => {
+    if (l.length < 2 || /^\d+$/.test(l) || /[{};\\]/.test(l) || /^case\s*checklist/i.test(l)) return;
+    result.push({ seq: seq++, name: l, color: '', packName });
   });
 
   return result;
@@ -448,7 +467,9 @@ function parseAndContinue() {
     items.forEach(it => it.packName = it.packName || packName);
     goToStep(2);
   } else {
-    alert('Could not parse any cases from the input. Try a different format.');
+    // Show what we received so user can see the problem
+    const preview = raw.split(/\r?\n/).slice(0, 15).map((l, i) => `${i+1}: ${l}`).join('\n');
+    alert('Could not parse any cases.\n\nFirst 15 lines received:\n\n' + preview + '\n\nTry using the bookmarklet, or paste one case name per line.');
   }
 }
 
