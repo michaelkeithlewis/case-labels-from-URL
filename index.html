@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Case Labels — for Truck Packer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'] },
+          colors: {
+            tp: { 50:'#f0f7ff', 100:'#e0effe', 200:'#b9dffd', 400:'#4fadfa', 500:'#2196f3', 600:'#1a7fd4', 700:'#1565b0', 800:'#0d4a80', 900:'#0a3560' }
+          }
+        }
+      }
+    }
+  </script>
+  <script src="https://unpkg.com/jspdf@latest/dist/jspdf.umd.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    .fade-in{animation:fadeIn .3s ease-out}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+    .label-preview-card{transition:all .2s;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+    .label-preview-card:hover{box-shadow:0 4px 12px rgba(0,0,0,.12)}
+    .step-dot{transition:all .3s}
+    .step-connector{transition:all .3s}
+    input:focus,select:focus,textarea:focus{outline:none;box-shadow:0 0 0 2px rgba(33,150,243,.3)}
+    @media print{body>*{display:none!important}#printFrame{display:block!important}}
+  </style>
+</head>
+<body class="h-full bg-gray-50 font-sans text-gray-900 antialiased">
+
+  <!-- ========== TOP NAV ========== -->
+  <nav class="bg-white border-b border-gray-200 sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-lg bg-tp-500 flex items-center justify-center">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z"/></svg>
+        </div>
+        <span class="font-bold text-lg">Case Labels</span>
+        <span class="text-xs text-gray-400 hidden sm:inline">for Truck Packer</span>
+      </div>
+      <a href="https://www.truckpacker.com" target="_blank" class="text-sm text-gray-400 hover:text-gray-600 transition">truckpacker.com &rarr;</a>
+    </div>
+  </nav>
+
+  <!-- ========== MAIN CONTENT ========== -->
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+
+    <!-- Wizard Steps Indicator -->
+    <div class="flex items-center justify-center mb-10">
+      <div class="flex items-center gap-0">
+        <button onclick="goToStep(1)" class="step-dot flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold transition" id="stepDot1">1</button>
+        <div class="step-connector w-16 sm:w-24 h-0.5 mx-1" id="stepConn1"></div>
+        <button onclick="goToStep(2)" class="step-dot flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold transition" id="stepDot2">2</button>
+        <div class="step-connector w-16 sm:w-24 h-0.5 mx-1" id="stepConn2"></div>
+        <button onclick="goToStep(3)" class="step-dot flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold transition" id="stepDot3">3</button>
+      </div>
+    </div>
+
+    <!-- ===================== STEP 1: Import ===================== -->
+    <section id="step1" class="fade-in">
+      <div class="max-w-2xl mx-auto">
+        <div class="text-center mb-8">
+          <h2 class="text-2xl font-bold mb-2">Get your case list</h2>
+          <p class="text-gray-500 text-sm max-w-md mx-auto">Use the bookmarklet on any Truck Packer crewview page to extract your cases, then paste them here.</p>
+        </div>
+
+        <!-- Two-column: Bookmarklet setup + Paste area -->
+        <div class="grid md:grid-cols-2 gap-5">
+
+          <!-- Left: Bookmarklet -->
+          <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div class="bg-gray-900 px-5 py-4">
+              <div class="flex items-center gap-3 mb-3">
+                <div class="flex gap-1.5">
+                  <div class="w-3 h-3 rounded-full bg-red-500/80"></div>
+                  <div class="w-3 h-3 rounded-full bg-yellow-500/80"></div>
+                  <div class="w-3 h-3 rounded-full bg-green-500/80"></div>
+                </div>
+                <span class="text-xs text-gray-500 font-mono">Bookmarks Bar</span>
+              </div>
+              <div class="flex items-center gap-2 pb-1">
+                <a id="bookmarkletLink" href="#" class="inline-flex items-center gap-2 bg-tp-500 hover:bg-tp-400 text-white pl-2.5 pr-3.5 py-1.5 rounded-md text-sm font-semibold cursor-grab transition shadow-lg shadow-tp-500/30" onclick="event.preventDefault();alert('Drag this button to your bookmarks toolbar!')">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+                  Extract Cases
+                </a>
+                <span class="text-[11px] text-gray-500">&larr; drag this up</span>
+              </div>
+            </div>
+            <div class="px-5 py-4 space-y-3">
+              <p class="text-sm font-semibold text-gray-800">One-time setup</p>
+              <ol class="text-sm text-gray-600 space-y-2">
+                <li class="flex gap-2.5">
+                  <span class="flex-shrink-0 w-5 h-5 rounded-full bg-tp-100 text-tp-700 text-xs font-bold flex items-center justify-center">1</span>
+                  <span>Drag the <strong class="text-gray-800">Extract Cases</strong> button to your bookmarks toolbar</span>
+                </li>
+              </ol>
+              <p class="text-sm font-semibold text-gray-800 pt-2">Every time</p>
+              <ol class="text-sm text-gray-600 space-y-2">
+                <li class="flex gap-2.5">
+                  <span class="flex-shrink-0 w-5 h-5 rounded-full bg-tp-100 text-tp-700 text-xs font-bold flex items-center justify-center">2</span>
+                  <span>Open your Truck Packer crewview link</span>
+                </li>
+                <li class="flex gap-2.5">
+                  <span class="flex-shrink-0 w-5 h-5 rounded-full bg-tp-100 text-tp-700 text-xs font-bold flex items-center justify-center">3</span>
+                  <span>Click <strong class="text-gray-800">Extract Cases</strong> in your toolbar — data copies to clipboard</span>
+                </li>
+                <li class="flex gap-2.5">
+                  <span class="flex-shrink-0 w-5 h-5 rounded-full bg-tp-100 text-tp-700 text-xs font-bold flex items-center justify-center">4</span>
+                  <span>Come back here and <strong class="text-gray-800">paste</strong> &rarr;</span>
+                </li>
+              </ol>
+            </div>
+          </div>
+
+          <!-- Right: Paste area -->
+          <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm flex flex-col">
+            <label class="block text-sm font-semibold text-gray-800 mb-2">Paste case data</label>
+            <textarea id="pasteArea" rows="10" class="flex-1 w-full border border-gray-300 rounded-lg px-4 py-3 text-sm font-mono placeholder-gray-400 transition resize-none min-h-[200px]" placeholder="Click here and press Ctrl/Cmd+V to paste the case list from the bookmarklet.
+
+Also works with:
+• Manually copied text from the page
+• Numbered lists
+• Plain text (one case per line)"></textarea>
+
+            <div class="flex items-center justify-between mt-3">
+              <p class="text-xs text-gray-400" id="parseStatus">Auto-detects on paste</p>
+              <button onclick="parseAndContinue()" id="parseBtn" class="bg-tp-500 hover:bg-tp-600 text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition flex items-center gap-2">
+                Continue
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== STEP 2: Configure ===================== -->
+    <section id="step2" class="hidden fade-in">
+      <div class="flex flex-col lg:flex-row gap-6">
+
+        <!-- Left: Settings Panel -->
+        <div class="lg:w-80 flex-shrink-0 space-y-4">
+          <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+            <h3 class="text-sm font-bold text-gray-800 mb-4 uppercase tracking-wide">Label Settings</h3>
+
+            <div class="space-y-4">
+              <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">Label Size</label>
+                <select id="cfgSize" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" onchange="sizeChanged();renderPreview()">
+                  <option value="4,6" selected>4 × 6" — Thermal / Shipping</option>
+                  <option value="4,4">4 × 4" — Square Thermal</option>
+                  <option value="4,3">4 × 3" — Half-height Thermal</option>
+                  <option value="4,2">4 × 2" — Avery 5163</option>
+                  <option value="3,2">3 × 2" — Name Badge</option>
+                  <option value="2.25,1.25">2.25 × 1.25" — Small</option>
+                  <option value="8.5,11">8.5 × 11" — Full Page</option>
+                  <option value="custom">Custom...</option>
+                </select>
+                <div id="customDims" class="hidden grid grid-cols-2 gap-2 mt-2">
+                  <div><label class="text-xs text-gray-400">Width (in)</label><input type="number" id="customW" value="4" step="0.25" min="1" class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm" oninput="renderPreview()"></div>
+                  <div><label class="text-xs text-gray-400">Height (in)</label><input type="number" id="customH" value="6" step="0.25" min="1" class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm" oninput="renderPreview()"></div>
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1.5">Orientation</label>
+                <div class="grid grid-cols-2 gap-2">
+                  <button type="button" id="oriPort" onclick="setOrientation('portrait')" class="flex items-center justify-center gap-2 px-3 py-2 rounded-lg border-2 text-sm font-medium transition">
+                    <svg class="w-4 h-5" viewBox="0 0 16 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="14" height="18" rx="2"/></svg>
+                    Portrait
+                  </button>
+                  <button type="button" id="oriLand" onclick="setOrientation('landscape')" class="flex items-center justify-center gap-2 px-3 py-2 rounded-lg border-2 text-sm font-medium transition">
+                    <svg class="w-5 h-4" viewBox="0 0 20 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="18" height="14" rx="2"/></svg>
+                    Landscape
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">Show / Artist Name</label>
+                <input type="text" id="cfgShowName" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="e.g. Colony House" oninput="renderPreview()">
+              </div>
+
+              <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">Corners</label>
+                <select id="cfgBorderR" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" onchange="renderPreview()">
+                  <option value="0">Square</option>
+                  <option value="8" selected>Rounded</option>
+                  <option value="16">Very Round</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+            <h3 class="text-sm font-bold text-gray-800 mb-4 uppercase tracking-wide">Text Sizing</h3>
+            <div class="space-y-4">
+              <div>
+                <div class="flex justify-between items-center mb-1">
+                  <label class="text-xs font-medium text-gray-500">Case Name</label>
+                  <span class="text-xs text-gray-400 tabular-nums" id="szNameVal">150%</span>
+                </div>
+                <input type="range" id="szName" min="50" max="250" value="150" step="10" class="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-tp-500" oninput="document.getElementById('szNameVal').textContent=this.value+'%';renderPreview()">
+              </div>
+              <div>
+                <div class="flex justify-between items-center mb-1">
+                  <label class="text-xs font-medium text-gray-500">Order #</label>
+                  <span class="text-xs text-gray-400 tabular-nums" id="szSeqVal">150%</span>
+                </div>
+                <input type="range" id="szSeq" min="50" max="250" value="150" step="10" class="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-tp-500" oninput="document.getElementById('szSeqVal').textContent=this.value+'%';renderPreview()">
+              </div>
+              <div>
+                <div class="flex justify-between items-center mb-1">
+                  <label class="text-xs font-medium text-gray-500">Show / Artist Name</label>
+                  <span class="text-xs text-gray-400 tabular-nums" id="szShowVal">100%</span>
+                </div>
+                <input type="range" id="szShow" min="50" max="250" value="100" step="10" class="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-tp-500" oninput="document.getElementById('szShowVal').textContent=this.value+'%';renderPreview()">
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+            <h3 class="text-sm font-bold text-gray-800 mb-3 uppercase tracking-wide">Style</h3>
+            <div class="space-y-1.5">
+              <label class="flex items-center gap-2.5 cursor-pointer p-2 rounded-lg hover:bg-gray-50 transition">
+                <input type="radio" name="cfgStyle" value="color" checked onchange="renderPreview()" class="w-4 h-4 text-tp-500">
+                <div>
+                  <span class="text-sm font-medium text-gray-800">Color Fill</span>
+                  <p class="text-xs text-gray-400">Category color fills the label</p>
+                </div>
+              </label>
+              <label class="flex items-center gap-2.5 cursor-pointer p-2 rounded-lg hover:bg-gray-50 transition">
+                <input type="radio" name="cfgStyle" value="outline" onchange="renderPreview()" class="w-4 h-4 text-tp-500">
+                <div>
+                  <span class="text-sm font-medium text-gray-800">Color Outline</span>
+                  <p class="text-xs text-gray-400">White label with colored border</p>
+                </div>
+              </label>
+              <label class="flex items-center gap-2.5 cursor-pointer p-2 rounded-lg hover:bg-gray-50 transition">
+                <input type="radio" name="cfgStyle" value="bw" onchange="renderPreview()" class="w-4 h-4 text-tp-500">
+                <div>
+                  <span class="text-sm font-medium text-gray-800">Black & White</span>
+                  <p class="text-xs text-gray-400">No color — works on any printer</p>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+            <h3 class="text-sm font-bold text-gray-800 mb-3 uppercase tracking-wide">Show on Label</h3>
+            <div class="space-y-2.5">
+              <label class="flex items-center gap-2.5 cursor-pointer"><input type="checkbox" id="cfgSeq" checked onchange="renderPreview()" class="w-4 h-4 rounded text-tp-500"><span class="text-sm text-gray-700">Load Order #</span></label>
+              <label class="flex items-center gap-2.5 cursor-pointer"><input type="checkbox" id="cfgPack" checked onchange="renderPreview()" class="w-4 h-4 rounded text-tp-500"><span class="text-sm text-gray-700">Pack Name</span></label>
+              <label class="flex items-center gap-2.5 cursor-pointer"><input type="checkbox" id="cfgCounter" checked onchange="renderPreview()" class="w-4 h-4 rounded text-tp-500"><span class="text-sm text-gray-700">Page Counter (1 of N)</span></label>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+            <h3 class="text-sm font-bold text-gray-800 mb-3 uppercase tracking-wide">Logo</h3>
+            <input type="file" id="logoFile" accept="image/*" onchange="handleLogo(this)" class="text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 w-full">
+            <div id="logoWrap" class="hidden mt-3 flex items-center gap-3">
+              <img id="logoImg" class="max-h-10 max-w-[120px] rounded bg-white border p-1">
+              <button onclick="clearLogo()" class="text-xs text-red-500 hover:text-red-700">&times; Remove</button>
+            </div>
+          </div>
+
+          <button onclick="goToStep(1)" class="w-full text-sm text-gray-500 hover:text-gray-700 py-2 transition">&larr; Back to Import</button>
+        </div>
+
+        <!-- Right: Preview + Actions -->
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="text-lg font-bold" id="previewTitle">Label Preview</h3>
+              <p class="text-sm text-gray-500" id="previewSubtitle">0 labels</p>
+            </div>
+            <button onclick="goToStep(3)" class="bg-tp-500 hover:bg-tp-600 text-white px-6 py-2.5 rounded-lg text-sm font-semibold transition flex items-center gap-2">
+              Download PDF
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            </button>
+          </div>
+
+          <!-- Label preview grid -->
+          <div id="previewGrid" class="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== STEP 3: Print ===================== -->
+    <section id="step3" class="hidden fade-in">
+      <div class="max-w-lg mx-auto text-center">
+        <div class="mb-8">
+          <div class="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+          </div>
+          <h2 class="text-2xl font-bold mb-2">Ready to download</h2>
+          <p class="text-gray-500 text-sm" id="printSummary">66 case labels configured</p>
+        </div>
+
+        <div class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm mb-6 text-left space-y-3">
+          <div class="flex justify-between text-sm"><span class="text-gray-500">Labels</span><span class="font-semibold" id="sumLabels">66</span></div>
+          <div class="flex justify-between text-sm"><span class="text-gray-500">Label Size</span><span class="font-semibold" id="sumSize">4 × 6"</span></div>
+          <div class="flex justify-between text-sm"><span class="text-gray-500">Pack</span><span class="font-semibold" id="sumPack">—</span></div>
+          <div class="flex justify-between text-sm"><span class="text-gray-500">Show</span><span class="font-semibold" id="sumShow">—</span></div>
+        </div>
+
+        <button onclick="downloadPDF()" id="dlBtn" class="bg-tp-500 hover:bg-tp-600 text-white px-10 py-3.5 rounded-xl text-base font-bold transition shadow-lg shadow-tp-500/20 flex items-center gap-3 mx-auto">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          Download PDF
+        </button>
+        <p class="text-xs text-gray-400 mt-3" id="dlStatus"></p>
+
+        <div class="flex items-center justify-center gap-4 mt-4">
+          <button onclick="goToStep(2)" class="text-sm text-gray-500 hover:text-gray-700 transition">&larr; Back to Preview</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+<!-- ========================================================================
+     JAVASCRIPT
+     ======================================================================== -->
+<script>
+// ===== State =====
+let items = [];
+let packName = '';
+let logoDataURL = '';
+let currentStep = 1;
+
+// ===== Wizard Navigation =====
+function goToStep(n) {
+  if (n >= 2 && !items.length) { shakeEl('parseBtn'); return; }
+  currentStep = n;
+  document.getElementById('step1').classList.toggle('hidden', n !== 1);
+  document.getElementById('step2').classList.toggle('hidden', n !== 2);
+  document.getElementById('step3').classList.toggle('hidden', n !== 3);
+  // Re-trigger fade
+  const el = document.getElementById('step' + n);
+  el.classList.remove('fade-in');
+  void el.offsetWidth;
+  el.classList.add('fade-in');
+  updateStepIndicator(n);
+  if (n === 2) renderPreview();
+  if (n === 3) updatePrintSummary();
+}
+
+function updateStepIndicator(active) {
+  for (let i = 1; i <= 3; i++) {
+    const dot = document.getElementById('stepDot' + i);
+    if (i < active) {
+      dot.className = 'step-dot flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold bg-tp-500 text-white cursor-pointer';
+    } else if (i === active) {
+      dot.className = 'step-dot flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold bg-tp-500 text-white ring-4 ring-tp-100';
+    } else {
+      dot.className = 'step-dot flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold bg-gray-200 text-gray-500 cursor-pointer';
+    }
+  }
+  for (let i = 1; i <= 2; i++) {
+    document.getElementById('stepConn' + i).className = 'step-connector w-16 sm:w-24 h-0.5 mx-1 ' + (i < active ? 'bg-tp-500' : 'bg-gray-200');
+  }
+}
+
+function shakeEl(id) {
+  const el = document.getElementById(id);
+  el.classList.add('animate-pulse');
+  setTimeout(() => el.classList.remove('animate-pulse'), 600);
+}
+
+
+// ===== Parse Text =====
+function isJunk(name) {
+  // Reject lines that look like code, JS, HTML, or other garbage
+  if (!name || name.length < 1 || name.length > 80) return true;
+  if (/^case\s*checklist/i.test(name)) return true;
+  // Code patterns: brackets, semicolons, function calls, variable assignments, operators
+  if (/[{};=<>]/.test(name)) return true;
+  if (/\bfunction\b|\bvar\b|\bconst\b|\blet\b|\breturn\b|\bif\b|\bfor\b|\bwhile\b/i.test(name)) return true;
+  if (/\$\w|\.\w+\(/.test(name)) return true; // $variable, .method()
+  if (/^\s*\/[/*]/.test(name)) return true; // comments
+  if (/^https?:/.test(name)) return true; // URLs
+  if (/[()]{2,}/.test(name)) return true; // multiple parens
+  if (/\\[nrt"]/.test(name)) return true; // escape sequences
+  if (/^\W+$/.test(name)) return true; // only symbols
+  // Too many special characters relative to length — likely code
+  const specials = (name.match(/[^a-zA-Z0-9\s'"\-+/.#&:,!]/g) || []).length;
+  if (specials > name.length * 0.3) return true;
+  return false;
+}
+
+function parseText(raw) {
+  const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  let result = [];
+
+  // Strategy A: "1  77 SIGNS" on same line
+  let seen = {};
+  lines.forEach(line => {
+    const m = line.match(/^(\d{1,3})\s{1,6}(.+)$/);
+    if (m) {
+      const seq = parseInt(m[1]), name = m[2].trim();
+      if (isJunk(name) || seen[seq]) return;
+      seen[seq] = 1;
+      result.push({ seq, name, color: '', packName });
+    }
+  });
+  if (result.length >= 3) return result;
+
+  // Strategy B: separate lines (number on one line, name on next)
+  result = []; seen = {};
+  for (let i = 0; i < lines.length - 1; i++) {
+    if (/^\d{1,3}$/.test(lines[i])) {
+      const seq = parseInt(lines[i]);
+      let j = i + 1;
+      while (j < lines.length && /^\d{1,3}$/.test(lines[j])) j++;
+      if (j < lines.length) {
+        const name = lines[j];
+        if (isJunk(name) || seen[seq]) { i = j; continue; }
+        seen[seq] = 1;
+        result.push({ seq, name, color: '', packName });
+        i = j;
+      }
+    }
+  }
+  if (result.length >= 3) return result;
+
+  // Strategy C: plain list (one name per line)
+  result = [];
+  let seq = 1;
+  lines.forEach(l => {
+    if (/^\d{1,3}$/.test(l)) return;
+    const m = l.match(/^(\d{1,3})\s+(.+)$/);
+    const name = m ? m[2].trim() : l;
+    if (isJunk(name)) return;
+    result.push({ seq: m ? parseInt(m[1]) : seq, name, color: '', packName });
+    seq++;
+  });
+
+  return result;
+}
+
+function parseAndContinue() {
+  const raw = document.getElementById('pasteArea').value.trim();
+  if (!raw) { shakeEl('pasteArea'); return; }
+
+  // Try JSON first
+  try {
+    let data = JSON.parse(raw);
+    if (data.items) { packName = data.packName || ''; data = data.items; }
+    if (Array.isArray(data) && data.length) {
+      items = data.map((d, i) => ({
+        seq: d.seq || i + 1,
+        name: d.name || d.label || d.title || '',
+        color: d.color || '',
+        packName: packName || d.packName || ''
+      })).filter(d => d.name);
+      if (items.length) { goToStep(2); return; }
+    }
+  } catch (e) { }
+
+  // Parse as text
+  items = parseText(raw);
+  if (items.length) {
+    items.forEach(it => it.packName = it.packName || packName);
+    goToStep(2);
+  } else {
+    alert('Could not parse any cases from the input. Try a different format.');
+  }
+}
+
+// ===== Logo =====
+function handleLogo(input) {
+  const f = input.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = function(e) {
+    logoDataURL = e.target.result;
+    document.getElementById('logoImg').src = logoDataURL;
+    document.getElementById('logoWrap').classList.remove('hidden');
+    renderPreview();
+  };
+  r.readAsDataURL(f);
+}
+function clearLogo() {
+  logoDataURL = '';
+  document.getElementById('logoFile').value = '';
+  document.getElementById('logoWrap').classList.add('hidden');
+  renderPreview();
+}
+
+// ===== Settings Helpers =====
+let orientation = 'portrait';
+
+function setOrientation(o) {
+  orientation = o;
+  document.getElementById('oriPort').className = 'flex items-center justify-center gap-2 px-3 py-2 rounded-lg border-2 text-sm font-medium transition ' +
+    (o === 'portrait' ? 'border-tp-500 bg-tp-50 text-tp-700' : 'border-gray-200 text-gray-500 hover:border-gray-300');
+  document.getElementById('oriLand').className = 'flex items-center justify-center gap-2 px-3 py-2 rounded-lg border-2 text-sm font-medium transition ' +
+    (o === 'landscape' ? 'border-tp-500 bg-tp-50 text-tp-700' : 'border-gray-200 text-gray-500 hover:border-gray-300');
+  renderPreview();
+}
+
+function sizeChanged() {
+  document.getElementById('customDims').classList.toggle('hidden', document.getElementById('cfgSize').value !== 'custom');
+}
+
+function getDims() {
+  const v = document.getElementById('cfgSize').value;
+  let w, h;
+  if (v === 'custom') {
+    w = parseFloat(document.getElementById('customW').value) || 4;
+    h = parseFloat(document.getElementById('customH').value) || 6;
+  } else {
+    const p = v.split(',');
+    w = parseFloat(p[0]); h = parseFloat(p[1]);
+  }
+  // Apply orientation — if landscape, ensure w > h; if portrait, ensure h > w
+  if (orientation === 'landscape' && h > w) { const t = w; w = h; h = t; }
+  if (orientation === 'portrait' && w > h) { const t = w; w = h; h = t; }
+  return { w, h };
+}
+
+function getCfg() {
+  const d = getDims();
+  const style = document.querySelector('input[name="cfgStyle"]:checked')?.value || 'color';
+  return {
+    w: d.w, h: d.h,
+    showName: document.getElementById('cfgShowName').value.trim(),
+    showSeq: document.getElementById('cfgSeq').checked,
+    showPack: document.getElementById('cfgPack').checked,
+    showCounter: document.getElementById('cfgCounter').checked,
+    borderR: parseInt(document.getElementById('cfgBorderR').value),
+    style,
+    scName: parseInt(document.getElementById('szName').value) / 100,
+    scSeq: parseInt(document.getElementById('szSeq').value) / 100,
+    scShow: parseInt(document.getElementById('szShow').value) / 100,
+    logo: logoDataURL
+  };
+}
+
+// ===== Preview Rendering =====
+function renderPreview() {
+  const cfg = getCfg();
+  const grid = document.getElementById('previewGrid');
+  document.getElementById('previewSubtitle').textContent = items.length + ' labels · ' + cfg.w + ' × ' + cfg.h + '"';
+  document.getElementById('previewTitle').textContent = packName ? 'Labels for ' + packName : 'Label Preview';
+
+  // Scale factor for preview cards (target ~280px wide)
+  const previewW = 280;
+  const ratio = cfg.h / cfg.w;
+  const previewH = Math.round(previewW * ratio);
+  const pxPerIn = previewW / cfg.w;
+  const area = cfg.w * cfg.h;
+  const sc = Math.sqrt(area / 24);
+
+  // Font sizes scaled for preview, with user multipliers
+  const nameF = Math.max(Math.round(14 * sc * (previewW / 280) * cfg.scName), 8);
+  const seqF = Math.max(Math.round(22 * sc * (previewW / 280) * cfg.scSeq), 10);
+  const showF = Math.max(Math.round(32 * sc * (previewW / 280) * cfg.scShow), 12);
+  const packF = Math.max(Math.round(7 * sc * (previewW / 280)), 6);
+  const ctrF = Math.max(Math.round(6 * sc * (previewW / 280)), 5);
+  const ibb = Math.max(Math.round(1.5 * sc), 1);
+
+  let html = '';
+  const maxPreview = Math.min(items.length, 50);
+  const pad = Math.round(pxPerIn * Math.max(0.15 * Math.min(cfg.w, cfg.h), 0.1));
+
+  for (let i = 0; i < maxPreview; i++) {
+    const it = items[i];
+    const catColor = it.color || '#9ca3af';
+    let labelBg, labelBorder, textColor, infoBoxStyle, seqBorderColor;
+
+    if (cfg.style === 'color') {
+      labelBg = catColor; labelBorder = 'none'; textColor = '#fff';
+      infoBoxStyle = 'background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.12)';
+      seqBorderColor = '#e5e7eb';
+    } else if (cfg.style === 'outline') {
+      labelBg = '#fff'; labelBorder = `3px solid ${catColor}`; textColor = '#111';
+      infoBoxStyle = `border:2px solid ${catColor}`;
+      seqBorderColor = catColor;
+    } else { // bw
+      labelBg = '#fff'; labelBorder = '3px solid #111'; textColor = '#111';
+      infoBoxStyle = 'border:2px solid #111';
+      seqBorderColor = '#111';
+    }
+
+    html += `<div class="label-preview-card overflow-hidden" style="width:${previewW}px;height:${previewH}px;background:${labelBg};border:${labelBorder};border-radius:${cfg.borderR}px;padding:${pad}px;display:flex;flex-direction:column">`;
+
+    // Top info box
+    html += `<div style="display:flex;border-radius:${Math.round(4 * sc)}px;overflow:hidden;flex-shrink:0;${infoBoxStyle}">`;
+    html += `<div style="flex:1;padding:${Math.round(5 * sc)}px ${Math.round(7 * sc)}px"><div style="font-size:${nameF}px;font-weight:800;line-height:1.15;color:#111">${esc(it.name)}</div></div>`;
+    if (cfg.showSeq) html += `<div style="font-size:${seqF}px;font-weight:900;padding:${Math.round(3 * sc)}px ${Math.round(8 * sc)}px;display:flex;align-items:center;border-left:2px solid ${seqBorderColor};white-space:nowrap;color:#111">#${it.seq}</div>`;
+    html += '</div>';
+
+    // Center — show name and/or logo (logo big and centered)
+    const center = cfg.showName || '';
+    const shadow = cfg.style === 'color' ? 'text-shadow:0 1px 3px rgba(0,0,0,.15)' : '';
+    html += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:${Math.round(4 * sc)}px;gap:${Math.round(4 * sc)}px">`;
+    if (cfg.logo) html += `<img src="${cfg.logo}" style="max-height:${Math.round(previewH * 0.3)}px;max-width:${Math.round(previewW * 0.7)}px;object-fit:contain">`;
+    if (center) html += `<div style="font-size:${showF}px;font-weight:900;line-height:1.1;word-break:break-word;color:${textColor};${shadow}">${esc(center)}</div>`;
+    html += '</div>';
+
+    // Bottom
+    html += `<div style="flex-shrink:0;text-align:center">`;
+    if (cfg.showPack && (it.packName || packName)) html += `<div style="font-size:${packF}px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:${textColor};opacity:0.8">${esc(it.packName || packName)}</div>`;
+    if (cfg.showCounter) html += `<div style="font-size:${ctrF}px;color:${textColor};opacity:0.5">${i + 1} of ${items.length}</div>`;
+    html += '</div></div>';
+  }
+  if (items.length > maxPreview) {
+    html += `<div class="flex items-center justify-center text-sm text-gray-400 py-8">+ ${items.length - maxPreview} more labels</div>`;
+  }
+
+  grid.innerHTML = html;
+}
+
+// ===== Print Summary =====
+function updatePrintSummary() {
+  const cfg = getCfg();
+  document.getElementById('sumLabels').textContent = items.length;
+  document.getElementById('sumSize').textContent = cfg.w + ' × ' + cfg.h + '"';
+  document.getElementById('sumPack').textContent = packName || '—';
+  document.getElementById('sumShow').textContent = cfg.showName || '—';
+  document.getElementById('printSummary').textContent = items.length + ' case labels configured';
+}
+
+// ===== PDF Download =====
+function parseColor(c) {
+  // Convert CSS color to {r,g,b} 0-255
+  if (!c) return {r:156,g:163,b:175};
+  c = c.trim();
+  if (c.startsWith('#')) {
+    let hex = c.slice(1);
+    if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+    return {r:parseInt(hex.substring(0,2),16),g:parseInt(hex.substring(2,4),16),b:parseInt(hex.substring(4,6),16)};
+  }
+  const m = c.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+  if (m) return {r:parseInt(m[1]),g:parseInt(m[2]),b:parseInt(m[3])};
+  // Fallback gray
+  return {r:156,g:163,b:175};
+}
+
+function roundRect(doc, x, y, w, h, r, style) {
+  // Draw a rounded rectangle. style: 'F' fill, 'S' stroke, 'FD' both
+  r = Math.min(r, w/2, h/2);
+  if (r <= 0) { doc.rect(x, y, w, h, style); return; }
+  doc.roundedRect(x, y, w, h, r, r, style);
+}
+
+async function downloadPDF() {
+  const cfg = getCfg();
+  const total = items.length;
+  const W = cfg.w, H = cfg.h;
+  const area = W * H;
+  const sc = Math.sqrt(area / 24);
+  const PPI = 72; // jsPDF uses 72 points per inch
+
+  const btn = document.getElementById('dlBtn');
+  const status = document.getElementById('dlStatus');
+  btn.disabled = true;
+  btn.classList.add('opacity-50');
+  status.textContent = 'Generating PDF...';
+
+  // Small delay to let UI update
+  await new Promise(r => setTimeout(r, 50));
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({
+    orientation: W > H ? 'landscape' : 'portrait',
+    unit: 'in',
+    format: [W, H]
+  });
+
+  const pad = Math.max(0.15 * Math.min(W, H), 0.1);
+  const nameF_pt = Math.max(22 * sc * cfg.scName, 10);
+  const seqF_pt = Math.max(36 * sc * cfg.scSeq, 14);
+  const showF_pt = Math.max(52 * sc * cfg.scShow, 18);
+  const packF_pt = Math.max(10 * sc, 7);
+  const ctrF_pt = Math.max(8 * sc, 6);
+  const borderR = cfg.borderR / PPI; // Convert px to inches
+  const isFill = cfg.style === 'color';
+  const isOutline = cfg.style === 'outline';
+  const isBW = cfg.style === 'bw';
+
+  // Preload logo if present
+  let logoImg = null;
+  if (cfg.logo) {
+    try {
+      logoImg = await new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = cfg.logo;
+      });
+    } catch(e) { logoImg = null; }
+  }
+
+  for (let i = 0; i < total; i++) {
+    if (i > 0) doc.addPage([W, H], W > H ? 'landscape' : 'portrait');
+
+    const it = items[i];
+    const catColor = parseColor(it.color);
+    const innerW = W - pad * 2;
+    const innerH = H - pad * 2;
+
+    // -- Background --
+    if (isFill) {
+      doc.setFillColor(catColor.r, catColor.g, catColor.b);
+      roundRect(doc, 0, 0, W, H, borderR, 'F');
+    } else if (isOutline) {
+      doc.setFillColor(255, 255, 255);
+      roundRect(doc, 0, 0, W, H, borderR, 'F');
+      const bw = 0.04 * sc;
+      doc.setDrawColor(catColor.r, catColor.g, catColor.b);
+      doc.setLineWidth(bw);
+      roundRect(doc, bw/2, bw/2, W - bw, H - bw, borderR, 'S');
+    } else {
+      doc.setFillColor(255, 255, 255);
+      roundRect(doc, 0, 0, W, H, borderR, 'F');
+      const bw = 0.04 * sc;
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(bw);
+      roundRect(doc, bw/2, bw/2, W - bw, H - bw, borderR, 'S');
+    }
+
+    // -- Info box (case name + order #) --
+    const boxH = Math.max(0.15 * H, 0.4);
+    const boxR = 0.06 * sc;
+    const boxX = pad;
+    const boxY = pad;
+    const boxW = innerW;
+
+    if (isFill) {
+      doc.setFillColor(255, 255, 255);
+      roundRect(doc, boxX, boxY, boxW, boxH, boxR, 'F');
+    } else if (isOutline) {
+      doc.setDrawColor(catColor.r, catColor.g, catColor.b);
+      doc.setLineWidth(0.02);
+      roundRect(doc, boxX, boxY, boxW, boxH, boxR, 'S');
+    } else {
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.02);
+      roundRect(doc, boxX, boxY, boxW, boxH, boxR, 'S');
+    }
+
+    // Case name text
+    doc.setTextColor(17, 17, 17);
+    doc.setFont('helvetica', 'bold');
+    const namePt = nameF_pt * 0.75; // scale from px concept to pt
+    doc.setFontSize(namePt);
+    const nameX = boxX + 0.12 * sc;
+    const nameY = boxY + boxH * 0.62;
+    const nameMaxW = cfg.showSeq ? boxW * 0.65 : boxW - 0.2 * sc;
+    doc.text(it.name, nameX, nameY, { maxWidth: nameMaxW });
+
+    // Order number
+    if (cfg.showSeq) {
+      const seqText = '#' + it.seq;
+      const seqPt = seqF_pt * 0.75;
+      doc.setFontSize(seqPt);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(17, 17, 17);
+      // Divider line
+      const divX = boxX + boxW * 0.72;
+      if (isFill) {
+        doc.setDrawColor(229, 231, 235);
+      } else if (isOutline) {
+        doc.setDrawColor(catColor.r, catColor.g, catColor.b);
+      } else {
+        doc.setDrawColor(0, 0, 0);
+      }
+      doc.setLineWidth(0.015);
+      doc.line(divX, boxY + 0.05, divX, boxY + boxH - 0.05);
+      // Seq text centered in right portion
+      const seqX = divX + (boxX + boxW - divX) / 2;
+      doc.text(seqText, seqX, nameY, { align: 'center' });
+    }
+
+    // -- Center area: logo + show name --
+    const centerY = boxY + boxH + 0.1 * sc;
+    const bottomReserve = 0.25 * sc;
+    const centerH = H - pad - bottomReserve - centerY;
+    const centerMidY = centerY + centerH / 2;
+
+    const txtColor = isFill ? [255,255,255] : [17,17,17];
+
+    let logoH_in = 0;
+    if (logoImg && cfg.logo) {
+      const maxLogoH = centerH * 0.55;
+      const maxLogoW = innerW * 0.7;
+      const imgRatio = logoImg.naturalWidth / logoImg.naturalHeight;
+      logoH_in = Math.min(maxLogoH, maxLogoW / imgRatio);
+      const logoW_in = logoH_in * imgRatio;
+      const logoX = pad + (innerW - logoW_in) / 2;
+
+      let logoY;
+      if (cfg.showName) {
+        logoY = centerMidY - logoH_in - 0.05 * sc;
+      } else {
+        logoY = centerMidY - logoH_in / 2;
+      }
+      try { doc.addImage(cfg.logo, logoX, logoY, logoW_in, logoH_in); } catch(e) {}
+    }
+
+    if (cfg.showName) {
+      doc.setTextColor(txtColor[0], txtColor[1], txtColor[2]);
+      doc.setFont('helvetica', 'bold');
+      const showPt = showF_pt * 0.75;
+      doc.setFontSize(showPt);
+      let showY;
+      if (logoImg && cfg.logo) {
+        showY = centerMidY + 0.1 * sc + showPt / 72;
+      } else {
+        showY = centerMidY + showPt / 72 / 2;
+      }
+      doc.text(cfg.showName, W / 2, showY, { align: 'center', maxWidth: innerW * 0.9 });
+    }
+
+    // -- Bottom: pack name + counter --
+    const bottomY = H - pad - 0.05;
+    doc.setTextColor(txtColor[0], txtColor[1], txtColor[2]);
+
+    if (cfg.showCounter) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(ctrF_pt * 0.7);
+      doc.text((i + 1) + ' of ' + total, W / 2, bottomY, { align: 'center' });
+    }
+
+    if (cfg.showPack && (it.packName || packName)) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(packF_pt * 0.7);
+      const packY = cfg.showCounter ? bottomY - ctrF_pt / 72 - 0.03 : bottomY;
+      doc.text((it.packName || packName).toUpperCase(), W / 2, packY, { align: 'center' });
+    }
+
+    // Progress
+    if (i % 10 === 0 || i === total - 1) {
+      status.textContent = `Generating PDF... ${i + 1} / ${total}`;
+      await new Promise(r => setTimeout(r, 0));
+    }
+  }
+
+  // Generate filename
+  const filename = (packName || 'case-labels').replace(/[^a-zA-Z0-9\s\-]/g, '').replace(/\s+/g, '-') + '.pdf';
+  doc.save(filename);
+
+  status.innerHTML = '<span class="text-green-600 font-medium">✓ Downloaded ' + filename + '</span>';
+  btn.disabled = false;
+  btn.classList.remove('opacity-50');
+}
+
+// ===== Bookmarklet =====
+function buildBookmarklet() {
+  const code = `(function(){try{var items=[],packName=(document.title||'').replace(/\\s*[-|]\\s*Truck\\s*Packer.*/i,'').trim();var lines=(document.body.innerText||'').split(/\\n/).map(function(l){return l.trim()}).filter(Boolean);var seen={};lines.forEach(function(l){var m=l.match(/^(\\d{1,3})\\s{1,6}(.+)$/);if(m){var q=parseInt(m[1]),n=m[2].trim();if(/^case\\s/i.test(n)||n.length<1||n.length>100||seen[q])return;seen[q]=1;items.push({seq:q,name:n,color:'',packName:packName})}});if(items.length<3){items=[];seen={};for(var i=0;i<lines.length-1;i++){if(/^(\\d{1,3})$/.test(lines[i])){var q=parseInt(lines[i]),j=i+1;while(j<lines.length&&/^\\d{1,3}$/.test(lines[j]))j++;if(j<lines.length){var n=lines[j];if(/^case\\s*checklist/i.test(n)||n.length<1||n.length>100||seen[q]){i=j;continue}seen[q]=1;items.push({seq:q,name:n,color:'',packName:packName});i=j}}}}if(!items.length){alert('No cases found');return}try{var allRows=document.querySelectorAll('div,li,tr,label');items.forEach(function(item){if(item.color)return;allRows.forEach(function(row){if(item.color)return;var rt=row.textContent;if(rt.indexOf(item.name)===-1||rt.length>item.name.length+40)return;row.querySelectorAll('svg').forEach(function(svg){if(item.color)return;var c=svg.getAttribute('fill')||svg.style.fill||'';if(!c||c==='none'||c==='currentColor'){svg.querySelectorAll('path,rect,circle,polygon').forEach(function(p){if(item.color)return;var fc=p.getAttribute('fill')||p.style.fill||'';if(fc&&fc!=='none'&&fc!=='currentColor'&&!/^(#fff|#ffffff|white)$/i.test(fc))item.color=fc})}else if(!/^(#fff|#ffffff|white)$/i.test(c))item.color=c});if(!item.color)row.querySelectorAll('[style]').forEach(function(el){if(item.color)return;var st=el.getAttribute('style')||'';var m=st.match(/(?:background-color|background|color|fill)\\s*:\\s*([^;]+)/i);if(m){var cv=m[1].trim();if(cv&&!/^(transparent|inherit|currentcolor|white|#fff|#ffffff|black|#000)$/i.test(cv))item.color=cv}})})})}catch(e){}var r=JSON.stringify({packName:packName,items:items});if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(r).then(function(){alert('Copied '+items.length+' cases!\\nPaste into the Case Label Printer.')})}else{prompt('Copy this:',r)}}catch(err){alert('Error: '+err.message)}})()`;
+  return 'javascript:' + encodeURIComponent(code);
+}
+document.getElementById('bookmarkletLink').href = buildBookmarklet();
+
+// ===== Util =====
+function esc(s) { return s ? s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') : ''; }
+
+// ===== Init =====
+updateStepIndicator(1);
+setOrientation('portrait');
+
+// Auto-detect paste in the textarea — parse and advance immediately
+document.getElementById('pasteArea').addEventListener('paste', function() {
+  setTimeout(() => {
+    if (this.value.trim().length > 10) {
+      document.getElementById('parseStatus').innerHTML = '<span class="text-tp-500 font-medium">Parsing...</span>';
+      setTimeout(() => parseAndContinue(), 150);
+    }
+  }, 100);
+});
+</script>
+</body>
+</html>
