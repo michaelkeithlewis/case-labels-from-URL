@@ -446,20 +446,45 @@ function parseAndContinue() {
   const raw = document.getElementById('pasteArea').value.trim();
   if (!raw) { shakeEl('pasteArea'); return; }
 
+  // Strip invisible chars (BOM, zero-width spaces, etc.) that break JSON.parse
+  let cleaned = raw.replace(/^\s+/, '').replace(/[\uFEFF\u200B\u200C\u200D\u00A0]/g, '');
+
   // Try JSON first
   try {
-    let data = JSON.parse(raw);
-    if (data.items) { packName = data.packName || ''; data = data.items; }
+    let data = JSON.parse(cleaned);
+    if (data.packName) packName = data.packName;
+    if (data.items) data = data.items;
     if (Array.isArray(data) && data.length) {
       items = data.map((d, i) => ({
         seq: d.seq || i + 1,
         name: d.name || d.label || d.title || '',
         color: d.color || '',
-        packName: packName || d.packName || ''
+        packName: d.packName || packName || ''
       })).filter(d => d.name);
       if (items.length) { goToStep(2); return; }
     }
-  } catch (e) { }
+  } catch (e) {
+    console.log('JSON parse failed:', e.message, 'First 50 chars:', JSON.stringify(cleaned.slice(0, 50)));
+    // If it looks like JSON but failed, try to extract the items array directly
+    if (cleaned.includes('"items"') && cleaned.includes('"name"')) {
+      try {
+        // Try to find and parse just the items array
+        const match = cleaned.match(/"items"\s*:\s*(\[[\s\S]*\])\s*\}?\s*$/);
+        if (match) {
+          const arr = JSON.parse(match[1]);
+          const pnMatch = cleaned.match(/"packName"\s*:\s*"([^"]+)"/);
+          if (pnMatch) packName = pnMatch[1];
+          items = arr.map((d, i) => ({
+            seq: d.seq || i + 1,
+            name: d.name || '',
+            color: d.color || '',
+            packName: d.packName || packName || ''
+          })).filter(d => d.name);
+          if (items.length) { goToStep(2); return; }
+        }
+      } catch (e2) { console.log('Fallback JSON parse also failed:', e2.message); }
+    }
+  }
 
   // Parse as text
   items = parseText(raw);
