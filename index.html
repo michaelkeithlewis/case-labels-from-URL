@@ -522,16 +522,15 @@ function renderPreview() {
   const ratio = cfg.h / cfg.w;
   const previewH = Math.round(previewW * ratio);
   const pxPerIn = previewW / cfg.w;
-  const area = cfg.w * cfg.h;
-  const sc = Math.sqrt(area / 24);
 
-  // Font sizes scaled for preview, with user multipliers
-  const nameF = Math.max(Math.round(14 * sc * (previewW / 280) * cfg.scName), 8);
-  const seqF = Math.max(Math.round(22 * sc * (previewW / 280) * cfg.scSeq), 10);
-  const showF = Math.max(Math.round(32 * sc * (previewW / 280) * cfg.scShow), 12);
-  const packF = Math.max(Math.round(7 * sc * (previewW / 280)), 6);
-  const ctrF = Math.max(Math.round(6 * sc * (previewW / 280)), 5);
-  const ibb = Math.max(Math.round(1.5 * sc), 1);
+  // Canonical sizes in inches, then convert to px for preview
+  const sz = labelSizes(cfg);
+  const nameF = Math.max(Math.round(sz.nameIn * pxPerIn), 8);
+  const seqF = Math.max(Math.round(sz.seqIn * pxPerIn), 10);
+  const showF = Math.max(Math.round(sz.showIn * pxPerIn), 12);
+  const packF = Math.max(Math.round(sz.packIn * pxPerIn), 6);
+  const ctrF = Math.max(Math.round(sz.ctrIn * pxPerIn), 5);
+  const ibb = Math.max(Math.round(sz.ibbIn * pxPerIn), 1);
 
   let html = '';
   const maxPreview = Math.min(items.length, 50);
@@ -558,10 +557,11 @@ function renderPreview() {
 
     html += `<div class="label-preview-card overflow-hidden" style="width:${previewW}px;height:${previewH}px;background:${labelBg};border:${labelBorder};border-radius:${cfg.borderR}px;padding:${pad}px;display:flex;flex-direction:column">`;
 
-    // Top info box
-    html += `<div style="display:flex;border-radius:${Math.round(4 * sc)}px;overflow:hidden;flex-shrink:0;${infoBoxStyle}">`;
-    html += `<div style="flex:1;padding:${Math.round(5 * sc)}px ${Math.round(7 * sc)}px"><div style="font-size:${nameF}px;font-weight:800;line-height:1.15;color:#111">${esc(it.name)}</div></div>`;
-    if (cfg.showSeq) html += `<div style="font-size:${seqF}px;font-weight:900;padding:${Math.round(3 * sc)}px ${Math.round(8 * sc)}px;display:flex;align-items:center;border-left:2px solid ${seqBorderColor};white-space:nowrap;color:#111">#${it.seq}</div>`;
+    // Top info box — height matches PDF
+    const boxHpx = Math.round(sz.boxH * pxPerIn);
+    html += `<div style="display:flex;height:${boxHpx}px;border-radius:${Math.round(sz.boxR * pxPerIn)}px;overflow:hidden;flex-shrink:0;${infoBoxStyle}">`;
+    html += `<div style="flex:1;padding:${Math.round(0.08 * sz.sc * pxPerIn)}px ${Math.round(0.1 * sz.sc * pxPerIn)}px;display:flex;align-items:center"><div style="font-size:${nameF}px;font-weight:800;line-height:1.15;color:#111">${esc(it.name)}</div></div>`;
+    if (cfg.showSeq) html += `<div style="font-size:${seqF}px;font-weight:900;padding:0 ${Math.round(0.12 * sz.sc * pxPerIn)}px;display:flex;align-items:center;border-left:${ibb}px solid ${seqBorderColor};white-space:nowrap;color:#111">#${it.seq}</div>`;
     html += '</div>';
 
     // Center — show name and/or logo (logo big and centered)
@@ -583,6 +583,25 @@ function renderPreview() {
   }
 
   grid.innerHTML = html;
+}
+
+// ===== Shared sizing — all values in INCHES, used by both preview and PDF =====
+function labelSizes(cfg) {
+  const area = cfg.w * cfg.h;
+  const sc = Math.sqrt(area / 24); // 4x6=24 is the baseline
+  return {
+    sc,
+    pad: Math.max(0.15 * Math.min(cfg.w, cfg.h), 0.1),
+    nameIn: 0.28 * sc * cfg.scName,       // case name
+    seqIn: 0.45 * sc * cfg.scSeq,         // order #
+    showIn: 0.65 * sc * cfg.scShow,        // show/artist name
+    packIn: 0.12 * sc,                     // pack name
+    ctrIn: 0.10 * sc,                      // counter
+    ibbIn: 0.02 * sc,                      // info box border
+    boxH: Math.max(0.16 * cfg.h * Math.max(cfg.scName, cfg.scSeq * 0.7), 0.35),
+    boxR: 0.06 * sc,                       // info box corner radius
+    borderR: cfg.borderR / 72,             // label corner radius (px -> in)
+  };
 }
 
 // ===== PDF Download =====
@@ -612,17 +631,13 @@ async function downloadPDF() {
   const cfg = getCfg();
   const total = items.length;
   const W = cfg.w, H = cfg.h;
-  const area = W * H;
-  const sc = Math.sqrt(area / 24);
-  const PPI = 72; // jsPDF uses 72 points per inch
+  const sz = labelSizes(cfg);
 
   const btn = document.getElementById('dlBtn');
   const status = document.getElementById('dlStatus');
   btn.disabled = true;
   btn.classList.add('opacity-50');
   status.textContent = 'Generating PDF...';
-
-  // Small delay to let UI update
   await new Promise(r => setTimeout(r, 50));
 
   const { jsPDF } = window.jspdf;
@@ -632,18 +647,18 @@ async function downloadPDF() {
     format: [W, H]
   });
 
-  const pad = Math.max(0.15 * Math.min(W, H), 0.1);
-  const nameF_pt = Math.max(22 * sc * cfg.scName, 10);
-  const seqF_pt = Math.max(36 * sc * cfg.scSeq, 14);
-  const showF_pt = Math.max(52 * sc * cfg.scShow, 18);
-  const packF_pt = Math.max(10 * sc, 7);
-  const ctrF_pt = Math.max(8 * sc, 6);
-  const borderR = cfg.borderR / PPI; // Convert px to inches
   const isFill = cfg.style === 'color';
   const isOutline = cfg.style === 'outline';
-  const isBW = cfg.style === 'bw';
+  const innerW = W - sz.pad * 2;
 
-  // Preload logo if present
+  // Font sizes: inches * 72 = points (jsPDF uses points for setFontSize)
+  const namePt = sz.nameIn * 72;
+  const seqPt = sz.seqIn * 72;
+  const showPt = sz.showIn * 72;
+  const packPt = sz.packIn * 72;
+  const ctrPt = sz.ctrIn * 72;
+
+  // Preload logo
   let logoImg = null;
   if (cfg.logo) {
     try {
@@ -661,151 +676,139 @@ async function downloadPDF() {
 
     const it = items[i];
     const catColor = parseColor(it.color);
-    const innerW = W - pad * 2;
-    const innerH = H - pad * 2;
 
     // -- Background --
     if (isFill) {
       doc.setFillColor(catColor.r, catColor.g, catColor.b);
-      roundRect(doc, 0, 0, W, H, borderR, 'F');
+      roundRect(doc, 0, 0, W, H, sz.borderR, 'F');
     } else if (isOutline) {
       doc.setFillColor(255, 255, 255);
-      roundRect(doc, 0, 0, W, H, borderR, 'F');
-      const bw = 0.04 * sc;
+      roundRect(doc, 0, 0, W, H, sz.borderR, 'F');
+      const bw = 0.04 * sz.sc;
       doc.setDrawColor(catColor.r, catColor.g, catColor.b);
       doc.setLineWidth(bw);
-      roundRect(doc, bw/2, bw/2, W - bw, H - bw, borderR, 'S');
-    } else {
+      roundRect(doc, bw/2, bw/2, W - bw, H - bw, sz.borderR, 'S');
+    } else { // bw
       doc.setFillColor(255, 255, 255);
-      roundRect(doc, 0, 0, W, H, borderR, 'F');
-      const bw = 0.04 * sc;
+      roundRect(doc, 0, 0, W, H, sz.borderR, 'F');
+      const bw = 0.04 * sz.sc;
       doc.setDrawColor(0, 0, 0);
       doc.setLineWidth(bw);
-      roundRect(doc, bw/2, bw/2, W - bw, H - bw, borderR, 'S');
+      roundRect(doc, bw/2, bw/2, W - bw, H - bw, sz.borderR, 'S');
     }
 
-    // -- Info box (case name + order #) --
-    const boxH = Math.max(0.15 * H, 0.4);
-    const boxR = 0.06 * sc;
-    const boxX = pad;
-    const boxY = pad;
+    // -- Info box --
+    const boxX = sz.pad;
+    const boxY = sz.pad;
     const boxW = innerW;
 
     if (isFill) {
       doc.setFillColor(255, 255, 255);
-      roundRect(doc, boxX, boxY, boxW, boxH, boxR, 'F');
+      roundRect(doc, boxX, boxY, boxW, sz.boxH, sz.boxR, 'F');
     } else if (isOutline) {
       doc.setDrawColor(catColor.r, catColor.g, catColor.b);
-      doc.setLineWidth(0.02);
-      roundRect(doc, boxX, boxY, boxW, boxH, boxR, 'S');
+      doc.setLineWidth(sz.ibbIn);
+      roundRect(doc, boxX, boxY, boxW, sz.boxH, sz.boxR, 'S');
     } else {
       doc.setDrawColor(0, 0, 0);
-      doc.setLineWidth(0.02);
-      roundRect(doc, boxX, boxY, boxW, boxH, boxR, 'S');
+      doc.setLineWidth(sz.ibbIn);
+      roundRect(doc, boxX, boxY, boxW, sz.boxH, sz.boxR, 'S');
     }
 
-    // Case name text
+    // Case name text — vertically centered in info box
     doc.setTextColor(17, 17, 17);
     doc.setFont('helvetica', 'bold');
-    const namePt = nameF_pt * 0.75; // scale from px concept to pt
     doc.setFontSize(namePt);
-    const nameX = boxX + 0.12 * sc;
-    const nameY = boxY + boxH * 0.62;
-    const nameMaxW = cfg.showSeq ? boxW * 0.65 : boxW - 0.2 * sc;
-    doc.text(it.name, nameX, nameY, { maxWidth: nameMaxW });
+    const nameTextY = boxY + sz.boxH / 2 + sz.nameIn * 0.35;
+    const nameMaxW = cfg.showSeq ? boxW * 0.65 : boxW - 0.2 * sz.sc;
+    doc.text(it.name, boxX + 0.1 * sz.sc, nameTextY, { maxWidth: nameMaxW });
 
     // Order number
     if (cfg.showSeq) {
       const seqText = '#' + it.seq;
-      const seqPt = seqF_pt * 0.75;
       doc.setFontSize(seqPt);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(17, 17, 17);
-      // Divider line
       const divX = boxX + boxW * 0.72;
-      if (isFill) {
-        doc.setDrawColor(229, 231, 235);
-      } else if (isOutline) {
-        doc.setDrawColor(catColor.r, catColor.g, catColor.b);
-      } else {
-        doc.setDrawColor(0, 0, 0);
-      }
-      doc.setLineWidth(0.015);
-      doc.line(divX, boxY + 0.05, divX, boxY + boxH - 0.05);
+      // Divider line
+      if (isFill) doc.setDrawColor(229, 231, 235);
+      else if (isOutline) doc.setDrawColor(catColor.r, catColor.g, catColor.b);
+      else doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(sz.ibbIn);
+      doc.line(divX, boxY + 0.04, divX, boxY + sz.boxH - 0.04);
       // Seq text centered in right portion
       const seqX = divX + (boxX + boxW - divX) / 2;
-      doc.text(seqText, seqX, nameY, { align: 'center' });
+      const seqTextY = boxY + sz.boxH / 2 + sz.seqIn * 0.35;
+      doc.text(seqText, seqX, seqTextY, { align: 'center' });
     }
 
     // -- Center area: logo + show name --
-    const centerY = boxY + boxH + 0.1 * sc;
-    const bottomReserve = 0.25 * sc;
-    const centerH = H - pad - bottomReserve - centerY;
-    const centerMidY = centerY + centerH / 2;
+    const centerTop = boxY + sz.boxH + 0.08 * sz.sc;
+    const bottomReserve = 0.2 * sz.sc;
+    const centerBot = H - sz.pad - bottomReserve;
+    const centerH = centerBot - centerTop;
+    const centerMidY = centerTop + centerH / 2;
 
     const txtColor = isFill ? [255,255,255] : [17,17,17];
 
-    let logoH_in = 0;
+    let logoUsedH = 0;
     if (logoImg && cfg.logo) {
-      const maxLogoH = centerH * 0.55;
+      const maxLogoH = centerH * 0.5;
       const maxLogoW = innerW * 0.7;
       const imgRatio = logoImg.naturalWidth / logoImg.naturalHeight;
-      logoH_in = Math.min(maxLogoH, maxLogoW / imgRatio);
-      const logoW_in = logoH_in * imgRatio;
-      const logoX = pad + (innerW - logoW_in) / 2;
-
+      logoUsedH = Math.min(maxLogoH, maxLogoW / imgRatio);
+      const logoW_in = logoUsedH * imgRatio;
+      const logoX = sz.pad + (innerW - logoW_in) / 2;
       let logoY;
       if (cfg.showName) {
-        logoY = centerMidY - logoH_in - 0.05 * sc;
+        logoY = centerMidY - logoUsedH * 0.6 - sz.showIn * 0.3;
       } else {
-        logoY = centerMidY - logoH_in / 2;
+        logoY = centerMidY - logoUsedH / 2;
       }
-      try { doc.addImage(cfg.logo, logoX, logoY, logoW_in, logoH_in); } catch(e) {}
+      try { doc.addImage(cfg.logo, logoX, Math.max(logoY, centerTop), logoW_in, logoUsedH); } catch(e) {}
     }
 
     if (cfg.showName) {
       doc.setTextColor(txtColor[0], txtColor[1], txtColor[2]);
       doc.setFont('helvetica', 'bold');
-      const showPt = showF_pt * 0.75;
       doc.setFontSize(showPt);
       let showY;
       if (logoImg && cfg.logo) {
-        showY = centerMidY + 0.1 * sc + showPt / 72;
+        showY = centerMidY + logoUsedH * 0.4 + sz.showIn * 0.35;
       } else {
-        showY = centerMidY + showPt / 72 / 2;
+        showY = centerMidY + sz.showIn * 0.35;
       }
       doc.text(cfg.showName, W / 2, showY, { align: 'center', maxWidth: innerW * 0.9 });
     }
 
-    // -- Bottom: pack name + counter --
-    const bottomY = H - pad - 0.05;
+    // -- Bottom --
     doc.setTextColor(txtColor[0], txtColor[1], txtColor[2]);
+    let bottomY = H - sz.pad - 0.03;
 
     if (cfg.showCounter) {
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(ctrF_pt * 0.7);
+      doc.setFontSize(ctrPt);
       doc.text((i + 1) + ' of ' + total, W / 2, bottomY, { align: 'center' });
+      bottomY -= sz.ctrIn + 0.02;
     }
 
     if (cfg.showPack && (it.packName || packName)) {
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(packF_pt * 0.7);
-      const packY = cfg.showCounter ? bottomY - ctrF_pt / 72 - 0.03 : bottomY;
-      doc.text((it.packName || packName).toUpperCase(), W / 2, packY, { align: 'center' });
+      doc.setFontSize(packPt);
+      doc.text((it.packName || packName).toUpperCase(), W / 2, bottomY, { align: 'center' });
     }
 
     // Progress
     if (i % 10 === 0 || i === total - 1) {
-      status.textContent = `Generating PDF... ${i + 1} / ${total}`;
+      status.textContent = `Generating... ${i + 1} / ${total}`;
       await new Promise(r => setTimeout(r, 0));
     }
   }
 
-  // Generate filename
   const filename = (packName || 'case-labels').replace(/[^a-zA-Z0-9\s\-]/g, '').replace(/\s+/g, '-') + '.pdf';
   doc.save(filename);
 
-  status.innerHTML = '<span class="text-green-600 font-medium">✓ Downloaded ' + filename + '</span>';
+  status.innerHTML = '<span class="text-green-600 font-medium">✓ ' + filename + '</span>';
   btn.disabled = false;
   btn.classList.remove('opacity-50');
 }
