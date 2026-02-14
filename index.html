@@ -268,7 +268,10 @@ Also works with:
             </div>
           </div>
 
-          <button onclick="goToStep(1)" class="w-full text-sm text-gray-500 hover:text-gray-700 py-2 transition">&larr; Back to Import</button>
+          <button onclick="startOver()" class="w-full flex items-center justify-center gap-2 text-sm text-gray-500 hover:text-red-600 border border-gray-200 hover:border-red-200 rounded-lg py-2.5 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            New Import
+          </button>
         </div>
 
         <!-- Right: Preview + Actions -->
@@ -309,7 +312,7 @@ let currentStep = 1;
 
 // ===== Wizard Navigation =====
 function goToStep(n) {
-  if (n >= 2 && !items.length) { shakeEl('parseBtn'); return; }
+  if (n === 2 && !items.length) { shakeEl('parseBtn'); return; }
   currentStep = n;
   document.getElementById('step1').classList.toggle('hidden', n !== 1);
   document.getElementById('step2').classList.toggle('hidden', n !== 2);
@@ -333,6 +336,14 @@ function updateStepIndicator(active) {
     }
   }
   document.getElementById('stepConn1').className = 'step-connector w-16 sm:w-24 h-0.5 mx-1 ' + (active > 1 ? 'bg-tp-500' : 'bg-gray-200');
+}
+
+function startOver() {
+  items = [];
+  packName = '';
+  document.getElementById('pasteArea').value = '';
+  document.getElementById('dlStatus').textContent = '';
+  goToStep(1);
 }
 
 function shakeEl(id) {
