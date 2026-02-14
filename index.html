@@ -56,8 +56,6 @@
         <button onclick="goToStep(1)" class="step-dot flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold transition" id="stepDot1">1</button>
         <div class="step-connector w-16 sm:w-24 h-0.5 mx-1" id="stepConn1"></div>
         <button onclick="goToStep(2)" class="step-dot flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold transition" id="stepDot2">2</button>
-        <div class="step-connector w-16 sm:w-24 h-0.5 mx-1" id="stepConn2"></div>
-        <button onclick="goToStep(3)" class="step-dot flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold transition" id="stepDot3">3</button>
       </div>
     </div>
 
@@ -280,10 +278,13 @@ Also works with:
               <h3 class="text-lg font-bold" id="previewTitle">Label Preview</h3>
               <p class="text-sm text-gray-500" id="previewSubtitle">0 labels</p>
             </div>
-            <button onclick="goToStep(3)" class="bg-tp-500 hover:bg-tp-600 text-white px-6 py-2.5 rounded-lg text-sm font-semibold transition flex items-center gap-2">
-              Download PDF
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-            </button>
+            <div class="flex items-center gap-3">
+              <span class="text-xs text-gray-400" id="dlStatus"></span>
+              <button onclick="downloadPDF()" id="dlBtn" class="bg-tp-500 hover:bg-tp-600 text-white px-6 py-2.5 rounded-lg text-sm font-semibold transition flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                Download PDF
+              </button>
+            </div>
           </div>
 
           <!-- Label preview grid -->
@@ -293,35 +294,6 @@ Also works with:
       </div>
     </section>
 
-    <!-- ===================== STEP 3: Print ===================== -->
-    <section id="step3" class="hidden fade-in">
-      <div class="max-w-lg mx-auto text-center">
-        <div class="mb-8">
-          <div class="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-          </div>
-          <h2 class="text-2xl font-bold mb-2">Ready to download</h2>
-          <p class="text-gray-500 text-sm" id="printSummary">66 case labels configured</p>
-        </div>
-
-        <div class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm mb-6 text-left space-y-3">
-          <div class="flex justify-between text-sm"><span class="text-gray-500">Labels</span><span class="font-semibold" id="sumLabels">66</span></div>
-          <div class="flex justify-between text-sm"><span class="text-gray-500">Label Size</span><span class="font-semibold" id="sumSize">4 × 6"</span></div>
-          <div class="flex justify-between text-sm"><span class="text-gray-500">Pack</span><span class="font-semibold" id="sumPack">—</span></div>
-          <div class="flex justify-between text-sm"><span class="text-gray-500">Show</span><span class="font-semibold" id="sumShow">—</span></div>
-        </div>
-
-        <button onclick="downloadPDF()" id="dlBtn" class="bg-tp-500 hover:bg-tp-600 text-white px-10 py-3.5 rounded-xl text-base font-bold transition shadow-lg shadow-tp-500/20 flex items-center gap-3 mx-auto">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-          Download PDF
-        </button>
-        <p class="text-xs text-gray-400 mt-3" id="dlStatus"></p>
-
-        <div class="flex items-center justify-center gap-4 mt-4">
-          <button onclick="goToStep(2)" class="text-sm text-gray-500 hover:text-gray-700 transition">&larr; Back to Preview</button>
-        </div>
-      </div>
-    </section>
 
   </main>
 
@@ -341,19 +313,16 @@ function goToStep(n) {
   currentStep = n;
   document.getElementById('step1').classList.toggle('hidden', n !== 1);
   document.getElementById('step2').classList.toggle('hidden', n !== 2);
-  document.getElementById('step3').classList.toggle('hidden', n !== 3);
-  // Re-trigger fade
   const el = document.getElementById('step' + n);
   el.classList.remove('fade-in');
   void el.offsetWidth;
   el.classList.add('fade-in');
   updateStepIndicator(n);
   if (n === 2) renderPreview();
-  if (n === 3) updatePrintSummary();
 }
 
 function updateStepIndicator(active) {
-  for (let i = 1; i <= 3; i++) {
+  for (let i = 1; i <= 2; i++) {
     const dot = document.getElementById('stepDot' + i);
     if (i < active) {
       dot.className = 'step-dot flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold bg-tp-500 text-white cursor-pointer';
@@ -363,9 +332,7 @@ function updateStepIndicator(active) {
       dot.className = 'step-dot flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold bg-gray-200 text-gray-500 cursor-pointer';
     }
   }
-  for (let i = 1; i <= 2; i++) {
-    document.getElementById('stepConn' + i).className = 'step-connector w-16 sm:w-24 h-0.5 mx-1 ' + (i < active ? 'bg-tp-500' : 'bg-gray-200');
-  }
+  document.getElementById('stepConn1').className = 'step-connector w-16 sm:w-24 h-0.5 mx-1 ' + (active > 1 ? 'bg-tp-500' : 'bg-gray-200');
 }
 
 function shakeEl(id) {
@@ -616,16 +583,6 @@ function renderPreview() {
   }
 
   grid.innerHTML = html;
-}
-
-// ===== Print Summary =====
-function updatePrintSummary() {
-  const cfg = getCfg();
-  document.getElementById('sumLabels').textContent = items.length;
-  document.getElementById('sumSize').textContent = cfg.w + ' × ' + cfg.h + '"';
-  document.getElementById('sumPack').textContent = packName || '—';
-  document.getElementById('sumShow').textContent = cfg.showName || '—';
-  document.getElementById('printSummary').textContent = items.length + ' case labels configured';
 }
 
 // ===== PDF Download =====
