@@ -355,36 +355,29 @@ function shakeEl(id) {
 
 // ===== Parse Text =====
 function isJunk(name) {
-  if (!name || name.length < 1 || name.length > 120) return true;
+  // Reject lines that look like code, JS, HTML, or other garbage
+  if (!name || name.length < 1 || name.length > 80) return true;
   if (/^case\s*checklist/i.test(name)) return true;
-  // Code patterns
-  if (/[{};]/.test(name)) return true;
-  if (/\bfunction\b|\bvar\b|\bconst\b|\blet\b|\breturn\b/i.test(name)) return true;
-  if (/\$\w{2,}/.test(name)) return true;
-  if (/^\s*\/[/*]/.test(name)) return true;
-  if (/^https?:/.test(name)) return true;
-  if (/\\[nrt"]/.test(name)) return true;
-  if (/^\W+$/.test(name)) return true;
-  const specials = (name.match(/[^a-zA-Z0-9\s'"\-+/.#&:,!()@']/g) || []).length;
-  if (specials > name.length * 0.35) return true;
+  // Code patterns: brackets, semicolons, function calls, variable assignments, operators
+  if (/[{};=<>]/.test(name)) return true;
+  if (/\bfunction\b|\bvar\b|\bconst\b|\blet\b|\breturn\b|\bif\b|\bfor\b|\bwhile\b/i.test(name)) return true;
+  if (/\$\w|\.\w+\(/.test(name)) return true; // $variable, .method()
+  if (/^\s*\/[/*]/.test(name)) return true; // comments
+  if (/^https?:/.test(name)) return true; // URLs
+  if (/[()]{2,}/.test(name)) return true; // multiple parens
+  if (/\\[nrt"]/.test(name)) return true; // escape sequences
+  if (/^\W+$/.test(name)) return true; // only symbols
+  // Too many special characters relative to length — likely code
+  const specials = (name.match(/[^a-zA-Z0-9\s'"\-+/.#&:,!]/g) || []).length;
+  if (specials > name.length * 0.3) return true;
   return false;
 }
 
-function cleanLine(l) {
-  // Strip common Truck Packer UI artifacts from copied text
-  return l
-    .replace(/^[\s○●◯☐☑✓✔→►▸▶▪▫•·]+/, '') // leading icons/bullets
-    .replace(/\s*(visibility|visibility_off|delete|delete_outline|edit|more_vert|more_horiz)\s*/gi, '') // Material icon text
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
 function parseText(raw) {
-  // Pre-clean: split, trim, clean UI artifacts
-  let lines = raw.split(/\r?\n/).map(l => cleanLine(l)).filter(l => l.length > 0);
+  const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   let result = [];
 
-  // Strategy A: "1  77 SIGNS" — number + name on same line
+  // Strategy A: "1  77 SIGNS" on same line
   let seen = {};
   lines.forEach(line => {
     const m = line.match(/^(\d{1,3})\s{1,6}(.+)$/);
@@ -397,13 +390,12 @@ function parseText(raw) {
   });
   if (result.length >= 3) return result;
 
-  // Strategy B: number and name on separate lines
+  // Strategy B: separate lines (number on one line, name on next)
   result = []; seen = {};
   for (let i = 0; i < lines.length - 1; i++) {
     if (/^\d{1,3}$/.test(lines[i])) {
       const seq = parseInt(lines[i]);
       let j = i + 1;
-      // Skip consecutive numbers
       while (j < lines.length && /^\d{1,3}$/.test(lines[j])) j++;
       if (j < lines.length) {
         const name = lines[j];
@@ -416,27 +408,16 @@ function parseText(raw) {
   }
   if (result.length >= 3) return result;
 
-  // Strategy C: every non-junk, non-number line is a case name
+  // Strategy C: plain list (one name per line)
   result = [];
   let seq = 1;
   lines.forEach(l => {
     if (/^\d{1,3}$/.test(l)) return;
-    if (/^case\s*checklist/i.test(l)) return;
     const m = l.match(/^(\d{1,3})\s+(.+)$/);
     const name = m ? m[2].trim() : l;
     if (isJunk(name)) return;
     result.push({ seq: m ? parseInt(m[1]) : seq, name, color: '', packName });
     seq++;
-  });
-  if (result.length >= 2) return result;
-
-  // Strategy D (last resort): take ALL non-empty lines > 1 char as case names
-  // Only skip obvious junk (very short, only numbers, or code)
-  result = [];
-  seq = 1;
-  lines.forEach(l => {
-    if (l.length < 2 || /^\d+$/.test(l) || /[{};\\]/.test(l) || /^case\s*checklist/i.test(l)) return;
-    result.push({ seq: seq++, name: l, color: '', packName });
   });
 
   return result;
@@ -446,45 +427,23 @@ function parseAndContinue() {
   const raw = document.getElementById('pasteArea').value.trim();
   if (!raw) { shakeEl('pasteArea'); return; }
 
-  // Strip invisible chars (BOM, zero-width spaces, etc.) that break JSON.parse
-  let cleaned = raw.replace(/^\s+/, '').replace(/[\uFEFF\u200B\u200C\u200D\u00A0]/g, '');
+  // Strip invisible chars (BOM, zero-width spaces) that clipboard can inject
+  const cleaned = raw.replace(/[\uFEFF\u200B\u200C\u200D\u00A0]/g, '').trim();
 
   // Try JSON first
   try {
     let data = JSON.parse(cleaned);
-    if (data.packName) packName = data.packName;
-    if (data.items) data = data.items;
+    if (data.items) { packName = data.packName || ''; data = data.items; }
     if (Array.isArray(data) && data.length) {
       items = data.map((d, i) => ({
         seq: d.seq || i + 1,
         name: d.name || d.label || d.title || '',
         color: d.color || '',
-        packName: d.packName || packName || ''
+        packName: packName || d.packName || ''
       })).filter(d => d.name);
       if (items.length) { goToStep(2); return; }
     }
-  } catch (e) {
-    console.log('JSON parse failed:', e.message, 'First 50 chars:', JSON.stringify(cleaned.slice(0, 50)));
-    // If it looks like JSON but failed, try to extract the items array directly
-    if (cleaned.includes('"items"') && cleaned.includes('"name"')) {
-      try {
-        // Try to find and parse just the items array
-        const match = cleaned.match(/"items"\s*:\s*(\[[\s\S]*\])\s*\}?\s*$/);
-        if (match) {
-          const arr = JSON.parse(match[1]);
-          const pnMatch = cleaned.match(/"packName"\s*:\s*"([^"]+)"/);
-          if (pnMatch) packName = pnMatch[1];
-          items = arr.map((d, i) => ({
-            seq: d.seq || i + 1,
-            name: d.name || '',
-            color: d.color || '',
-            packName: d.packName || packName || ''
-          })).filter(d => d.name);
-          if (items.length) { goToStep(2); return; }
-        }
-      } catch (e2) { console.log('Fallback JSON parse also failed:', e2.message); }
-    }
-  }
+  } catch (e) { }
 
   // Parse as text
   items = parseText(raw);
@@ -492,9 +451,7 @@ function parseAndContinue() {
     items.forEach(it => it.packName = it.packName || packName);
     goToStep(2);
   } else {
-    // Show what we received so user can see the problem
-    const preview = raw.split(/\r?\n/).slice(0, 15).map((l, i) => `${i+1}: ${l}`).join('\n');
-    alert('Could not parse any cases.\n\nFirst 15 lines received:\n\n' + preview + '\n\nTry using the bookmarklet, or paste one case name per line.');
+    alert('Could not parse any cases from the input. Try a different format.');
   }
 }
 
@@ -579,15 +536,16 @@ function renderPreview() {
   const ratio = cfg.h / cfg.w;
   const previewH = Math.round(previewW * ratio);
   const pxPerIn = previewW / cfg.w;
+  const area = cfg.w * cfg.h;
+  const sc = Math.sqrt(area / 24);
 
-  // Canonical sizes in inches, then convert to px for preview
-  const sz = labelSizes(cfg);
-  const nameF = Math.max(Math.round(sz.nameIn * pxPerIn), 8);
-  const seqF = Math.max(Math.round(sz.seqIn * pxPerIn), 10);
-  const showF = Math.max(Math.round(sz.showIn * pxPerIn), 12);
-  const packF = Math.max(Math.round(sz.packIn * pxPerIn), 6);
-  const ctrF = Math.max(Math.round(sz.ctrIn * pxPerIn), 5);
-  const ibb = Math.max(Math.round(sz.ibbIn * pxPerIn), 1);
+  // Font sizes scaled for preview, with user multipliers
+  const nameF = Math.max(Math.round(14 * sc * (previewW / 280) * cfg.scName), 8);
+  const seqF = Math.max(Math.round(22 * sc * (previewW / 280) * cfg.scSeq), 10);
+  const showF = Math.max(Math.round(32 * sc * (previewW / 280) * cfg.scShow), 12);
+  const packF = Math.max(Math.round(7 * sc * (previewW / 280)), 6);
+  const ctrF = Math.max(Math.round(6 * sc * (previewW / 280)), 5);
+  const ibb = Math.max(Math.round(1.5 * sc), 1);
 
   let html = '';
   const maxPreview = Math.min(items.length, 50);
@@ -614,11 +572,10 @@ function renderPreview() {
 
     html += `<div class="label-preview-card overflow-hidden" style="width:${previewW}px;height:${previewH}px;background:${labelBg};border:${labelBorder};border-radius:${cfg.borderR}px;padding:${pad}px;display:flex;flex-direction:column">`;
 
-    // Top info box — height matches PDF
-    const boxHpx = Math.round(sz.boxH * pxPerIn);
-    html += `<div style="display:flex;height:${boxHpx}px;border-radius:${Math.round(sz.boxR * pxPerIn)}px;overflow:hidden;flex-shrink:0;${infoBoxStyle}">`;
-    html += `<div style="flex:1;padding:${Math.round(0.08 * sz.sc * pxPerIn)}px ${Math.round(0.1 * sz.sc * pxPerIn)}px;display:flex;align-items:center"><div style="font-size:${nameF}px;font-weight:800;line-height:1.15;color:#111">${esc(it.name)}</div></div>`;
-    if (cfg.showSeq) html += `<div style="font-size:${seqF}px;font-weight:900;padding:0 ${Math.round(0.12 * sz.sc * pxPerIn)}px;display:flex;align-items:center;border-left:${ibb}px solid ${seqBorderColor};white-space:nowrap;color:#111">#${it.seq}</div>`;
+    // Top info box
+    html += `<div style="display:flex;border-radius:${Math.round(4 * sc)}px;overflow:hidden;flex-shrink:0;${infoBoxStyle}">`;
+    html += `<div style="flex:1;padding:${Math.round(5 * sc)}px ${Math.round(7 * sc)}px"><div style="font-size:${nameF}px;font-weight:800;line-height:1.15;color:#111">${esc(it.name)}</div></div>`;
+    if (cfg.showSeq) html += `<div style="font-size:${seqF}px;font-weight:900;padding:${Math.round(3 * sc)}px ${Math.round(8 * sc)}px;display:flex;align-items:center;border-left:2px solid ${seqBorderColor};white-space:nowrap;color:#111">#${it.seq}</div>`;
     html += '</div>';
 
     // Center — show name and/or logo (logo big and centered)
@@ -640,25 +597,6 @@ function renderPreview() {
   }
 
   grid.innerHTML = html;
-}
-
-// ===== Shared sizing — all values in INCHES, used by both preview and PDF =====
-function labelSizes(cfg) {
-  const area = cfg.w * cfg.h;
-  const sc = Math.sqrt(area / 24); // 4x6=24 is the baseline
-  return {
-    sc,
-    pad: Math.max(0.15 * Math.min(cfg.w, cfg.h), 0.1),
-    nameIn: 0.28 * sc * cfg.scName,       // case name
-    seqIn: 0.45 * sc * cfg.scSeq,         // order #
-    showIn: 0.65 * sc * cfg.scShow,        // show/artist name
-    packIn: 0.12 * sc,                     // pack name
-    ctrIn: 0.10 * sc,                      // counter
-    ibbIn: 0.02 * sc,                      // info box border
-    boxH: Math.max(0.16 * cfg.h * Math.max(cfg.scName, cfg.scSeq * 0.7), 0.35),
-    boxR: 0.06 * sc,                       // info box corner radius
-    borderR: cfg.borderR / 72,             // label corner radius (px -> in)
-  };
 }
 
 // ===== PDF Download =====
@@ -688,13 +626,17 @@ async function downloadPDF() {
   const cfg = getCfg();
   const total = items.length;
   const W = cfg.w, H = cfg.h;
-  const sz = labelSizes(cfg);
+  const area = W * H;
+  const sc = Math.sqrt(area / 24);
+  const PPI = 72; // jsPDF uses 72 points per inch
 
   const btn = document.getElementById('dlBtn');
   const status = document.getElementById('dlStatus');
   btn.disabled = true;
   btn.classList.add('opacity-50');
   status.textContent = 'Generating PDF...';
+
+  // Small delay to let UI update
   await new Promise(r => setTimeout(r, 50));
 
   const { jsPDF } = window.jspdf;
@@ -704,18 +646,18 @@ async function downloadPDF() {
     format: [W, H]
   });
 
+  const pad = Math.max(0.15 * Math.min(W, H), 0.1);
+  const nameF_pt = Math.max(22 * sc * cfg.scName, 10);
+  const seqF_pt = Math.max(36 * sc * cfg.scSeq, 14);
+  const showF_pt = Math.max(52 * sc * cfg.scShow, 18);
+  const packF_pt = Math.max(10 * sc, 7);
+  const ctrF_pt = Math.max(8 * sc, 6);
+  const borderR = cfg.borderR / PPI; // Convert px to inches
   const isFill = cfg.style === 'color';
   const isOutline = cfg.style === 'outline';
-  const innerW = W - sz.pad * 2;
+  const isBW = cfg.style === 'bw';
 
-  // Font sizes: inches * 72 = points (jsPDF uses points for setFontSize)
-  const namePt = sz.nameIn * 72;
-  const seqPt = sz.seqIn * 72;
-  const showPt = sz.showIn * 72;
-  const packPt = sz.packIn * 72;
-  const ctrPt = sz.ctrIn * 72;
-
-  // Preload logo
+  // Preload logo if present
   let logoImg = null;
   if (cfg.logo) {
     try {
@@ -733,139 +675,151 @@ async function downloadPDF() {
 
     const it = items[i];
     const catColor = parseColor(it.color);
+    const innerW = W - pad * 2;
+    const innerH = H - pad * 2;
 
     // -- Background --
     if (isFill) {
       doc.setFillColor(catColor.r, catColor.g, catColor.b);
-      roundRect(doc, 0, 0, W, H, sz.borderR, 'F');
+      roundRect(doc, 0, 0, W, H, borderR, 'F');
     } else if (isOutline) {
       doc.setFillColor(255, 255, 255);
-      roundRect(doc, 0, 0, W, H, sz.borderR, 'F');
-      const bw = 0.04 * sz.sc;
+      roundRect(doc, 0, 0, W, H, borderR, 'F');
+      const bw = 0.04 * sc;
       doc.setDrawColor(catColor.r, catColor.g, catColor.b);
       doc.setLineWidth(bw);
-      roundRect(doc, bw/2, bw/2, W - bw, H - bw, sz.borderR, 'S');
-    } else { // bw
+      roundRect(doc, bw/2, bw/2, W - bw, H - bw, borderR, 'S');
+    } else {
       doc.setFillColor(255, 255, 255);
-      roundRect(doc, 0, 0, W, H, sz.borderR, 'F');
-      const bw = 0.04 * sz.sc;
+      roundRect(doc, 0, 0, W, H, borderR, 'F');
+      const bw = 0.04 * sc;
       doc.setDrawColor(0, 0, 0);
       doc.setLineWidth(bw);
-      roundRect(doc, bw/2, bw/2, W - bw, H - bw, sz.borderR, 'S');
+      roundRect(doc, bw/2, bw/2, W - bw, H - bw, borderR, 'S');
     }
 
-    // -- Info box --
-    const boxX = sz.pad;
-    const boxY = sz.pad;
+    // -- Info box (case name + order #) --
+    const boxH = Math.max(0.15 * H, 0.4);
+    const boxR = 0.06 * sc;
+    const boxX = pad;
+    const boxY = pad;
     const boxW = innerW;
 
     if (isFill) {
       doc.setFillColor(255, 255, 255);
-      roundRect(doc, boxX, boxY, boxW, sz.boxH, sz.boxR, 'F');
+      roundRect(doc, boxX, boxY, boxW, boxH, boxR, 'F');
     } else if (isOutline) {
       doc.setDrawColor(catColor.r, catColor.g, catColor.b);
-      doc.setLineWidth(sz.ibbIn);
-      roundRect(doc, boxX, boxY, boxW, sz.boxH, sz.boxR, 'S');
+      doc.setLineWidth(0.02);
+      roundRect(doc, boxX, boxY, boxW, boxH, boxR, 'S');
     } else {
       doc.setDrawColor(0, 0, 0);
-      doc.setLineWidth(sz.ibbIn);
-      roundRect(doc, boxX, boxY, boxW, sz.boxH, sz.boxR, 'S');
+      doc.setLineWidth(0.02);
+      roundRect(doc, boxX, boxY, boxW, boxH, boxR, 'S');
     }
 
-    // Case name text — vertically centered in info box
+    // Case name text
     doc.setTextColor(17, 17, 17);
     doc.setFont('helvetica', 'bold');
+    const namePt = nameF_pt * 0.75; // scale from px concept to pt
     doc.setFontSize(namePt);
-    const nameTextY = boxY + sz.boxH / 2 + sz.nameIn * 0.35;
-    const nameMaxW = cfg.showSeq ? boxW * 0.65 : boxW - 0.2 * sz.sc;
-    doc.text(it.name, boxX + 0.1 * sz.sc, nameTextY, { maxWidth: nameMaxW });
+    const nameX = boxX + 0.12 * sc;
+    const nameY = boxY + boxH * 0.62;
+    const nameMaxW = cfg.showSeq ? boxW * 0.65 : boxW - 0.2 * sc;
+    doc.text(it.name, nameX, nameY, { maxWidth: nameMaxW });
 
     // Order number
     if (cfg.showSeq) {
       const seqText = '#' + it.seq;
+      const seqPt = seqF_pt * 0.75;
       doc.setFontSize(seqPt);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(17, 17, 17);
-      const divX = boxX + boxW * 0.72;
       // Divider line
-      if (isFill) doc.setDrawColor(229, 231, 235);
-      else if (isOutline) doc.setDrawColor(catColor.r, catColor.g, catColor.b);
-      else doc.setDrawColor(0, 0, 0);
-      doc.setLineWidth(sz.ibbIn);
-      doc.line(divX, boxY + 0.04, divX, boxY + sz.boxH - 0.04);
+      const divX = boxX + boxW * 0.72;
+      if (isFill) {
+        doc.setDrawColor(229, 231, 235);
+      } else if (isOutline) {
+        doc.setDrawColor(catColor.r, catColor.g, catColor.b);
+      } else {
+        doc.setDrawColor(0, 0, 0);
+      }
+      doc.setLineWidth(0.015);
+      doc.line(divX, boxY + 0.05, divX, boxY + boxH - 0.05);
       // Seq text centered in right portion
       const seqX = divX + (boxX + boxW - divX) / 2;
-      const seqTextY = boxY + sz.boxH / 2 + sz.seqIn * 0.35;
-      doc.text(seqText, seqX, seqTextY, { align: 'center' });
+      doc.text(seqText, seqX, nameY, { align: 'center' });
     }
 
     // -- Center area: logo + show name --
-    const centerTop = boxY + sz.boxH + 0.08 * sz.sc;
-    const bottomReserve = 0.2 * sz.sc;
-    const centerBot = H - sz.pad - bottomReserve;
-    const centerH = centerBot - centerTop;
-    const centerMidY = centerTop + centerH / 2;
+    const centerY = boxY + boxH + 0.1 * sc;
+    const bottomReserve = 0.25 * sc;
+    const centerH = H - pad - bottomReserve - centerY;
+    const centerMidY = centerY + centerH / 2;
 
     const txtColor = isFill ? [255,255,255] : [17,17,17];
 
-    let logoUsedH = 0;
+    let logoH_in = 0;
     if (logoImg && cfg.logo) {
-      const maxLogoH = centerH * 0.5;
+      const maxLogoH = centerH * 0.55;
       const maxLogoW = innerW * 0.7;
       const imgRatio = logoImg.naturalWidth / logoImg.naturalHeight;
-      logoUsedH = Math.min(maxLogoH, maxLogoW / imgRatio);
-      const logoW_in = logoUsedH * imgRatio;
-      const logoX = sz.pad + (innerW - logoW_in) / 2;
+      logoH_in = Math.min(maxLogoH, maxLogoW / imgRatio);
+      const logoW_in = logoH_in * imgRatio;
+      const logoX = pad + (innerW - logoW_in) / 2;
+
       let logoY;
       if (cfg.showName) {
-        logoY = centerMidY - logoUsedH * 0.6 - sz.showIn * 0.3;
+        logoY = centerMidY - logoH_in - 0.05 * sc;
       } else {
-        logoY = centerMidY - logoUsedH / 2;
+        logoY = centerMidY - logoH_in / 2;
       }
-      try { doc.addImage(cfg.logo, logoX, Math.max(logoY, centerTop), logoW_in, logoUsedH); } catch(e) {}
+      try { doc.addImage(cfg.logo, logoX, logoY, logoW_in, logoH_in); } catch(e) {}
     }
 
     if (cfg.showName) {
       doc.setTextColor(txtColor[0], txtColor[1], txtColor[2]);
       doc.setFont('helvetica', 'bold');
+      const showPt = showF_pt * 0.75;
       doc.setFontSize(showPt);
       let showY;
       if (logoImg && cfg.logo) {
-        showY = centerMidY + logoUsedH * 0.4 + sz.showIn * 0.35;
+        showY = centerMidY + 0.1 * sc + showPt / 72;
       } else {
-        showY = centerMidY + sz.showIn * 0.35;
+        showY = centerMidY + showPt / 72 / 2;
       }
       doc.text(cfg.showName, W / 2, showY, { align: 'center', maxWidth: innerW * 0.9 });
     }
 
-    // -- Bottom --
+    // -- Bottom: pack name + counter --
+    const bottomY = H - pad - 0.05;
     doc.setTextColor(txtColor[0], txtColor[1], txtColor[2]);
-    let bottomY = H - sz.pad - 0.03;
 
     if (cfg.showCounter) {
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(ctrPt);
+      doc.setFontSize(ctrF_pt * 0.7);
       doc.text((i + 1) + ' of ' + total, W / 2, bottomY, { align: 'center' });
-      bottomY -= sz.ctrIn + 0.02;
     }
 
     if (cfg.showPack && (it.packName || packName)) {
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(packPt);
-      doc.text((it.packName || packName).toUpperCase(), W / 2, bottomY, { align: 'center' });
+      doc.setFontSize(packF_pt * 0.7);
+      const packY = cfg.showCounter ? bottomY - ctrF_pt / 72 - 0.03 : bottomY;
+      doc.text((it.packName || packName).toUpperCase(), W / 2, packY, { align: 'center' });
     }
 
     // Progress
     if (i % 10 === 0 || i === total - 1) {
-      status.textContent = `Generating... ${i + 1} / ${total}`;
+      status.textContent = `Generating PDF... ${i + 1} / ${total}`;
       await new Promise(r => setTimeout(r, 0));
     }
   }
 
+  // Generate filename
   const filename = (packName || 'case-labels').replace(/[^a-zA-Z0-9\s\-]/g, '').replace(/\s+/g, '-') + '.pdf';
   doc.save(filename);
 
-  status.innerHTML = '<span class="text-green-600 font-medium">✓ ' + filename + '</span>';
+  status.innerHTML = '<span class="text-green-600 font-medium">✓ Downloaded ' + filename + '</span>';
   btn.disabled = false;
   btn.classList.remove('opacity-50');
 }
