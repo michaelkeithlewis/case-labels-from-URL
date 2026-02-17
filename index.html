@@ -617,16 +617,22 @@ async function downloadPDF() {
   const doc = new jsPDF({ orientation: W > H ? 'landscape' : 'portrait', unit: 'in', format: [W, H] });
 
   const pad = Math.max(0.15 * Math.min(W, H), 0.1);
-  const nameF = Math.max(22 * sc * cfg.scName, 10) * 0.75;
-  const seqF = Math.max(36 * sc * cfg.scSeq, 14) * 0.75;
-  const showF = Math.max(52 * sc * cfg.scShow, 18) * 0.75;
-  const packF = Math.max(10 * sc, 7) * 0.7;
-  const ctrF = Math.max(8 * sc, 6) * 0.7;
+  // Use the same base multipliers as preview (14, 22, 32, 7, 6) converted to points:
+  // PDF pt = basePx * sc * userScale * W * 72 / 280
+  const ptScale = W * 72 / 280;
+  const nameF = Math.max(14 * sc * cfg.scName * ptScale, 8);
+  const seqF = Math.max(22 * sc * cfg.scSeq * ptScale, 10);
+  const showF = Math.max(32 * sc * cfg.scShow * ptScale, 12);
+  const packF = Math.max(7 * sc * ptScale, 5);
+  const ctrF = Math.max(6 * sc * ptScale, 4);
   const borderR = cfg.borderR / 72;
   const isFill = cfg.style === 'color';
   const isOutline = cfg.style === 'outline';
   const innerW = W - pad * 2;
-  const boxH = Math.max(0.15 * H, 0.4);
+  // Info box height: match preview's auto-sizing (roughly nameF in inches + padding)
+  const nameSizeIn = nameF / 72;
+  const seqSizeIn = seqF / 72;
+  const boxH = Math.max(Math.max(nameSizeIn, seqSizeIn) + 0.2 * sc, 0.35);
   const boxR = Math.min(0.06 * sc, boxH / 2);
 
   let logoImg = null;
@@ -680,22 +686,32 @@ async function downloadPDF() {
     }
 
     // Center: logo + show name
-    const centerY = pad + boxH + 0.1 * sc;
-    const centerH = H - pad - 0.25 * sc - centerY;
+    const gap = 0.06 * sc; // gap between logo and show name
+    const centerY = pad + boxH + gap;
+    const bottomReserve = (cfg.showPack ? packF / 72 + 0.04 : 0) + (cfg.showCounter ? ctrF / 72 + 0.04 : 0) + 0.08;
+    const centerH = H - pad - bottomReserve - centerY;
     const centerMid = centerY + centerH / 2;
     const txtColor = isFill ? [255,255,255] : [17,17,17];
 
     if (logoImg) {
-      const maxLH = centerH * 0.5, maxLW = innerW * 0.7;
+      const maxLH = centerH * (cfg.showName ? 0.45 : 0.6), maxLW = innerW * 0.7;
       const imgR = logoImg.naturalWidth / logoImg.naturalHeight;
       const lH = Math.min(maxLH, maxLW / imgR), lW = lH * imgR;
       const lX = pad + (innerW - lW) / 2;
-      const lY = cfg.showName ? centerMid - lH - 0.05 * sc : centerMid - lH / 2;
+      const lY = cfg.showName ? centerMid - (lH + gap + showF / 72) / 2 : centerMid - lH / 2;
       try { doc.addImage(cfg.logo, lX, Math.max(lY, centerY), lW, lH); } catch(e) {}
     }
     if (cfg.showName) {
       doc.setTextColor(txtColor[0], txtColor[1], txtColor[2]); doc.setFont('helvetica', 'bold'); doc.setFontSize(showF);
-      const showY = logoImg ? centerMid + 0.1 * sc + showF / 72 : centerMid + showF / 72 / 2;
+      let showY;
+      if (logoImg) {
+        const maxLH = centerH * 0.45, maxLW = innerW * 0.7;
+        const imgR = logoImg.naturalWidth / logoImg.naturalHeight;
+        const lH = Math.min(maxLH, maxLW / imgR);
+        showY = centerMid - (lH + gap + showF / 72) / 2 + lH + gap + showF / 72 * 0.8;
+      } else {
+        showY = centerMid + showF / 72 * 0.35;
+      }
       doc.text(cfg.showName, W / 2, showY, { align: 'center', maxWidth: innerW * 0.9 });
     }
 
