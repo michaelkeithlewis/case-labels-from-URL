@@ -563,8 +563,8 @@ function renderPreview() {
 
     html += `<div class="label-preview-card overflow-hidden" style="width:${previewW}px;height:${previewH}px;background:${labelBg};border:${labelBorder};border-radius:${cfg.borderR}px;padding:${pad}px;display:flex;flex-direction:column">`;
 
-    // Top info box — uses shared height/padding
-    html += `<div style="display:flex;height:${boxHpx}px;border-radius:${boxRpx}px;overflow:hidden;flex-shrink:0;${infoBoxStyle}">`;
+    // Top info box — auto-height via flexbox
+    html += `<div style="display:flex;border-radius:${boxRpx}px;overflow:hidden;flex-shrink:0;${infoBoxStyle}">`;
     html += `<div style="flex:1;padding:${boxPadY}px ${boxPadX}px;display:flex;align-items:center"><div style="font-size:${nameF}px;font-weight:800;line-height:1.15;color:#111">${esc(it.name)}</div></div>`;
     if (cfg.showSeq) html += `<div style="font-size:${seqF}px;font-weight:900;padding:0 ${boxPadX}px;display:flex;align-items:center;border-left:${ibb}px solid ${seqBorderColor};white-space:nowrap;color:#111">#${it.seq}</div>`;
     html += '</div>';
@@ -682,30 +682,36 @@ async function downloadPDF() {
       doc.roundedRect(bw/2, bw/2, W-bw, H-bw, sz.borderR, sz.borderR, 'S');
     }
 
-    // Info box — same height and radius as preview
-    if (isFill) { doc.setFillColor(255, 255, 255); doc.roundedRect(sz.pad, sz.pad, innerW, sz.boxH, sz.boxR, sz.boxR, 'F'); }
-    else if (isOutline) { doc.setDrawColor(cc.r, cc.g, cc.b); doc.setLineWidth(sz.ibb); doc.roundedRect(sz.pad, sz.pad, innerW, sz.boxH, sz.boxR, sz.boxR, 'S'); }
-    else { doc.setDrawColor(0, 0, 0); doc.setLineWidth(sz.ibb); doc.roundedRect(sz.pad, sz.pad, innerW, sz.boxH, sz.boxR, sz.boxR, 'S'); }
-
-    // Case name — vertically centered in box
-    doc.setTextColor(17, 17, 17); doc.setFont('helvetica', 'bold'); doc.setFontSize(nameF);
-    const nameY = sz.pad + sz.boxH / 2 + sz.nameIn * 0.35;
+    // Measure actual text wrapping to size the box dynamically
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(nameF);
     const nameMaxW = cfg.showSeq ? innerW * 0.68 : innerW - sz.boxPadX * 2;
-    doc.text(it.name, sz.pad + sz.boxPadX, nameY, { maxWidth: nameMaxW });
+    const nameLines = doc.splitTextToSize(it.name, nameMaxW);
+    const nameTextH = nameLines.length * sz.nameIn * 1.15; // line-height 1.15
+    const itemBoxH = Math.max(nameTextH + sz.boxPadY * 2, sz.seqIn + sz.boxPadY * 2);
 
-    // Seq number — vertically centered, right section
+    // Info box — height fits the content
+    if (isFill) { doc.setFillColor(255, 255, 255); doc.roundedRect(sz.pad, sz.pad, innerW, itemBoxH, sz.boxR, sz.boxR, 'F'); }
+    else if (isOutline) { doc.setDrawColor(cc.r, cc.g, cc.b); doc.setLineWidth(sz.ibb); doc.roundedRect(sz.pad, sz.pad, innerW, itemBoxH, sz.boxR, sz.boxR, 'S'); }
+    else { doc.setDrawColor(0, 0, 0); doc.setLineWidth(sz.ibb); doc.roundedRect(sz.pad, sz.pad, innerW, itemBoxH, sz.boxR, sz.boxR, 'S'); }
+
+    // Case name — top-aligned with padding
+    doc.setTextColor(17, 17, 17); doc.setFont('helvetica', 'bold'); doc.setFontSize(nameF);
+    const nameY = sz.pad + sz.boxPadY + sz.nameIn * 0.85;
+    doc.text(nameLines, sz.pad + sz.boxPadX, nameY);
+
+    // Seq number — vertically centered in box
     if (cfg.showSeq) {
       doc.setFontSize(seqF); doc.setTextColor(17, 17, 17);
       const divX = sz.pad + innerW * 0.72;
       if (isFill) doc.setDrawColor(229, 231, 235); else if (isOutline) doc.setDrawColor(cc.r, cc.g, cc.b); else doc.setDrawColor(0, 0, 0);
-      doc.setLineWidth(sz.ibb); doc.line(divX, sz.pad + 0.03, divX, sz.pad + sz.boxH - 0.03);
-      const seqY = sz.pad + sz.boxH / 2 + sz.seqIn * 0.35;
+      doc.setLineWidth(sz.ibb); doc.line(divX, sz.pad + 0.03, divX, sz.pad + itemBoxH - 0.03);
+      const seqY = sz.pad + itemBoxH / 2 + sz.seqIn * 0.35;
       doc.text('#' + it.seq, divX + (sz.pad + innerW - divX) / 2, seqY, { align: 'center' });
     }
 
     // Center: logo + show name
     const gap = 0.06 * sz.sc;
-    const centerY = sz.pad + sz.boxH + gap;
+    const centerY = sz.pad + itemBoxH + gap;
     const bottomReserve = (cfg.showPack ? sz.packIn + 0.04 : 0) + (cfg.showCounter ? sz.ctrIn + 0.04 : 0) + 0.06;
     const centerH = H - sz.pad - bottomReserve - centerY;
     const centerMid = centerY + centerH / 2;
