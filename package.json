@@ -1,0 +1,15 @@
+{
+  "name": "case-labels-from-url",
+  "version": "1.0.0",
+  "description": "Generate printable PDF case labels from any [Truck Packer](https://www.truckpacker.com/) crewview link. Designed for production teams, tour managers, and logistics professionals.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "serve": "^14.2.5"
+  }
+}

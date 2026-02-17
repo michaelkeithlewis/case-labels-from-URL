@@ -17,7 +17,6 @@
       }
     }
   </script>
-  <script src="https://unpkg.com/jspdf@latest/dist/jspdf.umd.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
@@ -56,8 +55,6 @@
         <button onclick="goToStep(1)" class="step-dot flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold transition" id="stepDot1">1</button>
         <div class="step-connector w-16 sm:w-24 h-0.5 mx-1" id="stepConn1"></div>
         <button onclick="goToStep(2)" class="step-dot flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold transition" id="stepDot2">2</button>
-        <div class="step-connector w-16 sm:w-24 h-0.5 mx-1" id="stepConn2"></div>
-        <button onclick="goToStep(3)" class="step-dot flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold transition" id="stepDot3">3</button>
       </div>
     </div>
 
@@ -270,10 +267,7 @@ Also works with:
             </div>
           </div>
 
-          <button onclick="startOver()" class="w-full flex items-center justify-center gap-2 text-sm text-gray-500 hover:text-red-600 border border-gray-200 hover:border-red-200 rounded-lg py-2.5 transition">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-            New Import
-          </button>
+          <button onclick="goToStep(1)" class="w-full text-sm text-gray-500 hover:text-gray-700 py-2 transition">&larr; Back to Import</button>
         </div>
 
         <!-- Right: Preview + Actions -->
@@ -283,45 +277,18 @@ Also works with:
               <h3 class="text-lg font-bold" id="previewTitle">Label Preview</h3>
               <p class="text-sm text-gray-500" id="previewSubtitle">0 labels</p>
             </div>
-            <button onclick="goToStep(3)" class="bg-tp-500 hover:bg-tp-600 text-white px-6 py-2.5 rounded-lg text-sm font-semibold transition flex items-center gap-2">
-              Download PDF
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-            </button>
+            <div class="flex items-center gap-3">
+              <span class="text-xs text-gray-400" id="dlStatus"></span>
+              <button onclick="downloadPDF()" id="dlBtn" class="bg-tp-500 hover:bg-tp-600 text-white px-6 py-2.5 rounded-lg text-sm font-semibold transition flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                Download PDF
+              </button>
+            </div>
           </div>
 
           <!-- Label preview grid -->
           <div id="previewGrid" class="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
           </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ===================== STEP 3: Print ===================== -->
-    <section id="step3" class="hidden fade-in">
-      <div class="max-w-lg mx-auto text-center">
-        <div class="mb-8">
-          <div class="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-          </div>
-          <h2 class="text-2xl font-bold mb-2">Ready to download</h2>
-          <p class="text-gray-500 text-sm" id="printSummary">66 case labels configured</p>
-        </div>
-
-        <div class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm mb-6 text-left space-y-3">
-          <div class="flex justify-between text-sm"><span class="text-gray-500">Labels</span><span class="font-semibold" id="sumLabels">66</span></div>
-          <div class="flex justify-between text-sm"><span class="text-gray-500">Label Size</span><span class="font-semibold" id="sumSize">4 × 6"</span></div>
-          <div class="flex justify-between text-sm"><span class="text-gray-500">Pack</span><span class="font-semibold" id="sumPack">—</span></div>
-          <div class="flex justify-between text-sm"><span class="text-gray-500">Show</span><span class="font-semibold" id="sumShow">—</span></div>
-        </div>
-
-        <button onclick="downloadPDF()" id="dlBtn" class="bg-tp-500 hover:bg-tp-600 text-white px-10 py-3.5 rounded-xl text-base font-bold transition shadow-lg shadow-tp-500/20 flex items-center gap-3 mx-auto">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-          Download PDF
-        </button>
-        <p class="text-xs text-gray-400 mt-3" id="dlStatus"></p>
-
-        <div class="flex items-center justify-center gap-4 mt-4">
-          <button onclick="goToStep(2)" class="text-sm text-gray-500 hover:text-gray-700 transition">&larr; Back to Preview</button>
         </div>
       </div>
     </section>
@@ -340,11 +307,10 @@ let currentStep = 1;
 
 // ===== Wizard Navigation =====
 function goToStep(n) {
-  if (n === 2 && !items.length) { shakeEl('parseBtn'); return; }
+  if (n >= 2 && !items.length) { shakeEl('parseBtn'); return; }
   currentStep = n;
   document.getElementById('step1').classList.toggle('hidden', n !== 1);
   document.getElementById('step2').classList.toggle('hidden', n !== 2);
-  document.getElementById('step3').classList.toggle('hidden', n !== 3);
   // Re-trigger fade
   const el = document.getElementById('step' + n);
   el.classList.remove('fade-in');
@@ -352,11 +318,10 @@ function goToStep(n) {
   el.classList.add('fade-in');
   updateStepIndicator(n);
   if (n === 2) renderPreview();
-  if (n === 3) updatePrintSummary();
 }
 
 function updateStepIndicator(active) {
-  for (let i = 1; i <= 3; i++) {
+  for (let i = 1; i <= 2; i++) {
     const dot = document.getElementById('stepDot' + i);
     if (i < active) {
       dot.className = 'step-dot flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold bg-tp-500 text-white cursor-pointer';
@@ -366,16 +331,7 @@ function updateStepIndicator(active) {
       dot.className = 'step-dot flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold bg-gray-200 text-gray-500 cursor-pointer';
     }
   }
-  for (let i = 1; i <= 2; i++) {
-    document.getElementById('stepConn' + i).className = 'step-connector w-16 sm:w-24 h-0.5 mx-1 ' + (i < active ? 'bg-tp-500' : 'bg-gray-200');
-  }
-}
-
-function startOver() {
-  items = [];
-  packName = '';
-  document.getElementById('pasteArea').value = '';
-  goToStep(1);
+  document.getElementById('stepConn1').className = 'step-connector w-16 sm:w-24 h-0.5 mx-1 ' + (active > 1 ? 'bg-tp-500' : 'bg-gray-200');
 }
 
 function shakeEl(id) {
@@ -626,241 +582,6 @@ function renderPreview() {
   }
 
   grid.innerHTML = html;
-}
-
-// ===== Print Summary =====
-function updatePrintSummary() {
-  const cfg = getCfg();
-  document.getElementById('sumLabels').textContent = items.length;
-  document.getElementById('sumSize').textContent = cfg.w + ' × ' + cfg.h + '"';
-  document.getElementById('sumPack').textContent = packName || '—';
-  document.getElementById('sumShow').textContent = cfg.showName || '—';
-  document.getElementById('printSummary').textContent = items.length + ' case labels configured';
-}
-
-// ===== PDF Download =====
-function parseColor(c) {
-  // Convert CSS color to {r,g,b} 0-255
-  if (!c) return {r:156,g:163,b:175};
-  c = c.trim();
-  if (c.startsWith('#')) {
-    let hex = c.slice(1);
-    if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
-    return {r:parseInt(hex.substring(0,2),16),g:parseInt(hex.substring(2,4),16),b:parseInt(hex.substring(4,6),16)};
-  }
-  const m = c.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-  if (m) return {r:parseInt(m[1]),g:parseInt(m[2]),b:parseInt(m[3])};
-  // Fallback gray
-  return {r:156,g:163,b:175};
-}
-
-function roundRect(doc, x, y, w, h, r, style) {
-  // Draw a rounded rectangle. style: 'F' fill, 'S' stroke, 'FD' both
-  r = Math.min(r, w/2, h/2);
-  if (r <= 0) { doc.rect(x, y, w, h, style); return; }
-  doc.roundedRect(x, y, w, h, r, r, style);
-}
-
-async function downloadPDF() {
-  const cfg = getCfg();
-  const total = items.length;
-  const W = cfg.w, H = cfg.h;
-  const area = W * H;
-  const sc = Math.sqrt(area / 24);
-  const PPI = 72; // jsPDF uses 72 points per inch
-
-  const btn = document.getElementById('dlBtn');
-  const status = document.getElementById('dlStatus');
-  btn.disabled = true;
-  btn.classList.add('opacity-50');
-  status.textContent = 'Generating PDF...';
-
-  // Small delay to let UI update
-  await new Promise(r => setTimeout(r, 50));
-
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({
-    orientation: W > H ? 'landscape' : 'portrait',
-    unit: 'in',
-    format: [W, H]
-  });
-
-  const pad = Math.max(0.15 * Math.min(W, H), 0.1);
-  const nameF_pt = Math.max(22 * sc * cfg.scName, 10);
-  const seqF_pt = Math.max(36 * sc * cfg.scSeq, 14);
-  const showF_pt = Math.max(52 * sc * cfg.scShow, 18);
-  const packF_pt = Math.max(10 * sc, 7);
-  const ctrF_pt = Math.max(8 * sc, 6);
-  const borderR = cfg.borderR / PPI; // Convert px to inches
-  const isFill = cfg.style === 'color';
-  const isOutline = cfg.style === 'outline';
-  const isBW = cfg.style === 'bw';
-
-  // Preload logo if present
-  let logoImg = null;
-  if (cfg.logo) {
-    try {
-      logoImg = await new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve(img);
-        img.onerror = reject;
-        img.src = cfg.logo;
-      });
-    } catch(e) { logoImg = null; }
-  }
-
-  for (let i = 0; i < total; i++) {
-    if (i > 0) doc.addPage([W, H], W > H ? 'landscape' : 'portrait');
-
-    const it = items[i];
-    const catColor = parseColor(it.color);
-    const innerW = W - pad * 2;
-    const innerH = H - pad * 2;
-
-    // -- Background --
-    if (isFill) {
-      doc.setFillColor(catColor.r, catColor.g, catColor.b);
-      roundRect(doc, 0, 0, W, H, borderR, 'F');
-    } else if (isOutline) {
-      doc.setFillColor(255, 255, 255);
-      roundRect(doc, 0, 0, W, H, borderR, 'F');
-      const bw = 0.04 * sc;
-      doc.setDrawColor(catColor.r, catColor.g, catColor.b);
-      doc.setLineWidth(bw);
-      roundRect(doc, bw/2, bw/2, W - bw, H - bw, borderR, 'S');
-    } else {
-      doc.setFillColor(255, 255, 255);
-      roundRect(doc, 0, 0, W, H, borderR, 'F');
-      const bw = 0.04 * sc;
-      doc.setDrawColor(0, 0, 0);
-      doc.setLineWidth(bw);
-      roundRect(doc, bw/2, bw/2, W - bw, H - bw, borderR, 'S');
-    }
-
-    // -- Info box (case name + order #) --
-    const boxH = Math.max(0.15 * H, 0.4);
-    const boxR = 0.06 * sc;
-    const boxX = pad;
-    const boxY = pad;
-    const boxW = innerW;
-
-    if (isFill) {
-      doc.setFillColor(255, 255, 255);
-      roundRect(doc, boxX, boxY, boxW, boxH, boxR, 'F');
-    } else if (isOutline) {
-      doc.setDrawColor(catColor.r, catColor.g, catColor.b);
-      doc.setLineWidth(0.02);
-      roundRect(doc, boxX, boxY, boxW, boxH, boxR, 'S');
-    } else {
-      doc.setDrawColor(0, 0, 0);
-      doc.setLineWidth(0.02);
-      roundRect(doc, boxX, boxY, boxW, boxH, boxR, 'S');
-    }
-
-    // Case name text
-    doc.setTextColor(17, 17, 17);
-    doc.setFont('helvetica', 'bold');
-    const namePt = nameF_pt * 0.75; // scale from px concept to pt
-    doc.setFontSize(namePt);
-    const nameX = boxX + 0.12 * sc;
-    const nameY = boxY + boxH * 0.62;
-    const nameMaxW = cfg.showSeq ? boxW * 0.65 : boxW - 0.2 * sc;
-    doc.text(it.name, nameX, nameY, { maxWidth: nameMaxW });
-
-    // Order number
-    if (cfg.showSeq) {
-      const seqText = '#' + it.seq;
-      const seqPt = seqF_pt * 0.75;
-      doc.setFontSize(seqPt);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(17, 17, 17);
-      // Divider line
-      const divX = boxX + boxW * 0.72;
-      if (isFill) {
-        doc.setDrawColor(229, 231, 235);
-      } else if (isOutline) {
-        doc.setDrawColor(catColor.r, catColor.g, catColor.b);
-      } else {
-        doc.setDrawColor(0, 0, 0);
-      }
-      doc.setLineWidth(0.015);
-      doc.line(divX, boxY + 0.05, divX, boxY + boxH - 0.05);
-      // Seq text centered in right portion
-      const seqX = divX + (boxX + boxW - divX) / 2;
-      doc.text(seqText, seqX, nameY, { align: 'center' });
-    }
-
-    // -- Center area: logo + show name --
-    const centerY = boxY + boxH + 0.1 * sc;
-    const bottomReserve = 0.25 * sc;
-    const centerH = H - pad - bottomReserve - centerY;
-    const centerMidY = centerY + centerH / 2;
-
-    const txtColor = isFill ? [255,255,255] : [17,17,17];
-
-    let logoH_in = 0;
-    if (logoImg && cfg.logo) {
-      const maxLogoH = centerH * 0.55;
-      const maxLogoW = innerW * 0.7;
-      const imgRatio = logoImg.naturalWidth / logoImg.naturalHeight;
-      logoH_in = Math.min(maxLogoH, maxLogoW / imgRatio);
-      const logoW_in = logoH_in * imgRatio;
-      const logoX = pad + (innerW - logoW_in) / 2;
-
-      let logoY;
-      if (cfg.showName) {
-        logoY = centerMidY - logoH_in - 0.05 * sc;
-      } else {
-        logoY = centerMidY - logoH_in / 2;
-      }
-      try { doc.addImage(cfg.logo, logoX, logoY, logoW_in, logoH_in); } catch(e) {}
-    }
-
-    if (cfg.showName) {
-      doc.setTextColor(txtColor[0], txtColor[1], txtColor[2]);
-      doc.setFont('helvetica', 'bold');
-      const showPt = showF_pt * 0.75;
-      doc.setFontSize(showPt);
-      let showY;
-      if (logoImg && cfg.logo) {
-        showY = centerMidY + 0.1 * sc + showPt / 72;
-      } else {
-        showY = centerMidY + showPt / 72 / 2;
-      }
-      doc.text(cfg.showName, W / 2, showY, { align: 'center', maxWidth: innerW * 0.9 });
-    }
-
-    // -- Bottom: pack name + counter --
-    const bottomY = H - pad - 0.05;
-    doc.setTextColor(txtColor[0], txtColor[1], txtColor[2]);
-
-    if (cfg.showCounter) {
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(ctrF_pt * 0.7);
-      doc.text((i + 1) + ' of ' + total, W / 2, bottomY, { align: 'center' });
-    }
-
-    if (cfg.showPack && (it.packName || packName)) {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(packF_pt * 0.7);
-      const packY = cfg.showCounter ? bottomY - ctrF_pt / 72 - 0.03 : bottomY;
-      doc.text((it.packName || packName).toUpperCase(), W / 2, packY, { align: 'center' });
-    }
-
-    // Progress
-    if (i % 10 === 0 || i === total - 1) {
-      status.textContent = `Generating PDF... ${i + 1} / ${total}`;
-      await new Promise(r => setTimeout(r, 0));
-    }
-  }
-
-  // Generate filename
-  const filename = (packName || 'case-labels').replace(/[^a-zA-Z0-9\s\-]/g, '').replace(/\s+/g, '-') + '.pdf';
-  doc.save(filename);
-
-  status.innerHTML = '<span class="text-green-600 font-medium">✓ Downloaded ' + filename + '</span>';
-  btn.disabled = false;
-  btn.classList.remove('opacity-50');
 }
 
 // ===== Bookmarklet =====
