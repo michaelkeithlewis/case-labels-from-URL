@@ -584,6 +584,145 @@ function renderPreview() {
   grid.innerHTML = html;
 }
 
+// ===== PDF Download =====
+function parseColor(c) {
+  if (!c) return {r:156,g:163,b:175};
+  c = c.trim();
+  if (c.startsWith('#')) {
+    let hex = c.slice(1);
+    if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+    return {r:parseInt(hex.substring(0,2),16),g:parseInt(hex.substring(2,4),16),b:parseInt(hex.substring(4,6),16)};
+  }
+  const m = c.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+  if (m) return {r:parseInt(m[1]),g:parseInt(m[2]),b:parseInt(m[3])};
+  return {r:156,g:163,b:175};
+}
+
+async function downloadPDF() {
+  const cfg = getCfg();
+  const total = items.length;
+  const W = cfg.w, H = cfg.h;
+  const area = W * H;
+  const sc = Math.sqrt(area / 24);
+
+  const btn = document.getElementById('dlBtn');
+  const status = document.getElementById('dlStatus');
+  btn.disabled = true;
+  btn.classList.add('opacity-50');
+  status.textContent = 'Generating PDF...';
+  await new Promise(r => setTimeout(r, 50));
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: W > H ? 'landscape' : 'portrait', unit: 'in', format: [W, H] });
+
+  const pad = Math.max(0.15 * Math.min(W, H), 0.1);
+  const nameF = Math.max(22 * sc * cfg.scName, 10) * 0.75;
+  const seqF = Math.max(36 * sc * cfg.scSeq, 14) * 0.75;
+  const showF = Math.max(52 * sc * cfg.scShow, 18) * 0.75;
+  const packF = Math.max(10 * sc, 7) * 0.7;
+  const ctrF = Math.max(8 * sc, 6) * 0.7;
+  const borderR = cfg.borderR / 72;
+  const isFill = cfg.style === 'color';
+  const isOutline = cfg.style === 'outline';
+  const innerW = W - pad * 2;
+  const boxH = Math.max(0.15 * H, 0.4);
+  const boxR = Math.min(0.06 * sc, boxH / 2);
+
+  let logoImg = null;
+  if (cfg.logo) {
+    try {
+      logoImg = await new Promise((res, rej) => { const img = new Image(); img.onload = () => res(img); img.onerror = rej; img.src = cfg.logo; });
+    } catch(e) {}
+  }
+
+  for (let i = 0; i < total; i++) {
+    if (i > 0) doc.addPage([W, H], W > H ? 'landscape' : 'portrait');
+    const it = items[i];
+    const cc = parseColor(it.color);
+
+    // Background
+    if (isFill) {
+      doc.setFillColor(cc.r, cc.g, cc.b);
+      doc.roundedRect(0, 0, W, H, borderR, borderR, 'F');
+    } else if (isOutline) {
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(0, 0, W, H, borderR, borderR, 'F');
+      const bw = 0.04 * sc;
+      doc.setDrawColor(cc.r, cc.g, cc.b); doc.setLineWidth(bw);
+      doc.roundedRect(bw/2, bw/2, W-bw, H-bw, borderR, borderR, 'S');
+    } else {
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(0, 0, W, H, borderR, borderR, 'F');
+      const bw = 0.04 * sc;
+      doc.setDrawColor(0, 0, 0); doc.setLineWidth(bw);
+      doc.roundedRect(bw/2, bw/2, W-bw, H-bw, borderR, borderR, 'S');
+    }
+
+    // Info box
+    if (isFill) { doc.setFillColor(255, 255, 255); doc.roundedRect(pad, pad, innerW, boxH, boxR, boxR, 'F'); }
+    else if (isOutline) { doc.setDrawColor(cc.r, cc.g, cc.b); doc.setLineWidth(0.02); doc.roundedRect(pad, pad, innerW, boxH, boxR, boxR, 'S'); }
+    else { doc.setDrawColor(0, 0, 0); doc.setLineWidth(0.02); doc.roundedRect(pad, pad, innerW, boxH, boxR, boxR, 'S'); }
+
+    // Case name
+    doc.setTextColor(17, 17, 17); doc.setFont('helvetica', 'bold'); doc.setFontSize(nameF);
+    const nameY = pad + boxH * 0.62;
+    const nameMaxW = cfg.showSeq ? innerW * 0.65 : innerW - 0.2;
+    doc.text(it.name, pad + 0.12 * sc, nameY, { maxWidth: nameMaxW });
+
+    // Seq number
+    if (cfg.showSeq) {
+      doc.setFontSize(seqF); doc.setTextColor(17, 17, 17);
+      const divX = pad + innerW * 0.72;
+      if (isFill) doc.setDrawColor(229, 231, 235); else if (isOutline) doc.setDrawColor(cc.r, cc.g, cc.b); else doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.015); doc.line(divX, pad + 0.05, divX, pad + boxH - 0.05);
+      doc.text('#' + it.seq, divX + (pad + innerW - divX) / 2, nameY, { align: 'center' });
+    }
+
+    // Center: logo + show name
+    const centerY = pad + boxH + 0.1 * sc;
+    const centerH = H - pad - 0.25 * sc - centerY;
+    const centerMid = centerY + centerH / 2;
+    const txtColor = isFill ? [255,255,255] : [17,17,17];
+
+    if (logoImg) {
+      const maxLH = centerH * 0.5, maxLW = innerW * 0.7;
+      const imgR = logoImg.naturalWidth / logoImg.naturalHeight;
+      const lH = Math.min(maxLH, maxLW / imgR), lW = lH * imgR;
+      const lX = pad + (innerW - lW) / 2;
+      const lY = cfg.showName ? centerMid - lH - 0.05 * sc : centerMid - lH / 2;
+      try { doc.addImage(cfg.logo, lX, Math.max(lY, centerY), lW, lH); } catch(e) {}
+    }
+    if (cfg.showName) {
+      doc.setTextColor(txtColor[0], txtColor[1], txtColor[2]); doc.setFont('helvetica', 'bold'); doc.setFontSize(showF);
+      const showY = logoImg ? centerMid + 0.1 * sc + showF / 72 : centerMid + showF / 72 / 2;
+      doc.text(cfg.showName, W / 2, showY, { align: 'center', maxWidth: innerW * 0.9 });
+    }
+
+    // Bottom
+    doc.setTextColor(txtColor[0], txtColor[1], txtColor[2]);
+    let bottomY = H - pad - 0.05;
+    if (cfg.showCounter) { doc.setFont('helvetica', 'normal'); doc.setFontSize(ctrF); doc.text((i+1)+' of '+total, W/2, bottomY, {align:'center'}); bottomY -= ctrF/72 + 0.03; }
+    if (cfg.showPack && (it.packName || packName)) { doc.setFont('helvetica', 'bold'); doc.setFontSize(packF); doc.text((it.packName||packName).toUpperCase(), W/2, bottomY, {align:'center'}); }
+
+    if (i % 10 === 0 || i === total - 1) { status.textContent = 'Generating... '+(i+1)+' / '+total; await new Promise(r => setTimeout(r, 0)); }
+  }
+
+  // Safari-compatible download: open as blob URL in new tab
+  const filename = (packName || 'case-labels').replace(/[^a-zA-Z0-9\s\-]/g, '').replace(/\s+/g, '-') + '.pdf';
+  const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+  if (isSafari) {
+    const blob = doc.output('blob');
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+    status.innerHTML = '<span class="text-green-600 font-medium">✓ Opened in new tab — save with Cmd+S</span>';
+  } else {
+    doc.save(filename);
+    status.innerHTML = '<span class="text-green-600 font-medium">✓ ' + filename + '</span>';
+  }
+  btn.disabled = false;
+  btn.classList.remove('opacity-50');
+}
+
 // ===== Bookmarklet =====
 function buildBookmarklet() {
   const code = `(function(){try{var items=[],packName=(document.title||'').replace(/\\s*[-|]\\s*Truck\\s*Packer.*/i,'').trim();var lines=(document.body.innerText||'').split(/\\n/).map(function(l){return l.trim()}).filter(Boolean);var seen={};lines.forEach(function(l){var m=l.match(/^(\\d{1,3})\\s{1,6}(.+)$/);if(m){var q=parseInt(m[1]),n=m[2].trim();if(/^case\\s/i.test(n)||n.length<1||n.length>100||seen[q])return;seen[q]=1;items.push({seq:q,name:n,color:'',packName:packName})}});if(items.length<3){items=[];seen={};for(var i=0;i<lines.length-1;i++){if(/^(\\d{1,3})$/.test(lines[i])){var q=parseInt(lines[i]),j=i+1;while(j<lines.length&&/^\\d{1,3}$/.test(lines[j]))j++;if(j<lines.length){var n=lines[j];if(/^case\\s*checklist/i.test(n)||n.length<1||n.length>100||seen[q]){i=j;continue}seen[q]=1;items.push({seq:q,name:n,color:'',packName:packName});i=j}}}}if(!items.length){alert('No cases found');return}try{var allRows=document.querySelectorAll('div,li,tr,label');items.forEach(function(item){if(item.color)return;allRows.forEach(function(row){if(item.color)return;var rt=row.textContent;if(rt.indexOf(item.name)===-1||rt.length>item.name.length+40)return;row.querySelectorAll('svg').forEach(function(svg){if(item.color)return;var c=svg.getAttribute('fill')||svg.style.fill||'';if(!c||c==='none'||c==='currentColor'){svg.querySelectorAll('path,rect,circle,polygon').forEach(function(p){if(item.color)return;var fc=p.getAttribute('fill')||p.style.fill||'';if(fc&&fc!=='none'&&fc!=='currentColor'&&!/^(#fff|#ffffff|white)$/i.test(fc))item.color=fc})}else if(!/^(#fff|#ffffff|white)$/i.test(c))item.color=c});if(!item.color)row.querySelectorAll('[style]').forEach(function(el){if(item.color)return;var st=el.getAttribute('style')||'';var m=st.match(/(?:background-color|background|color|fill)\\s*:\\s*([^;]+)/i);if(m){var cv=m[1].trim();if(cv&&!/^(transparent|inherit|currentcolor|white|#fff|#ffffff|black|#000)$/i.test(cv))item.color=cv}})})})}catch(e){}var r=JSON.stringify({packName:packName,items:items});if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(r).then(function(){alert('Copied '+items.length+' cases!\\nPaste into the Case Label Printer.')})}else{prompt('Copy this:',r)}}catch(err){alert('Error: '+err.message)}})()`;
